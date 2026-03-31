@@ -36,13 +36,13 @@ The repository follows GitOps principles with ArgoCD + Helm for continuous deplo
 argocd login <ARGOCD_SERVER>
 
 # Create application from manifest
-argocd app create -f argocd-apps/sysdig-shield.yaml
+argocd app create -f argocd-apps/sysdig-shield-dev.yaml
 
 # Sync application
-argocd app sync sysdig-shield
+argocd app sync sysdig-shield-dev
 
 # Check application status
-argocd app get sysdig-shield
+argocd app get sysdig-shield-dev
 
 # Delete application
 argocd app delete sysdig-shield

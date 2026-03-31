@@ -12,13 +12,13 @@
 ### 1. 저장소 복제
 
 ```bash
-git clone <YOUR_REPO_URL>
+git clone https://github.com/EdwardArchive/sysdig-shield-argocd.git
 cd sysdig-shield-argocd
 ```
 
 ### 2. ArgoCD Application의 repoURL 설정
 
-`argocd-apps/` 내 각 파일에서 `<YOUR_REPO_URL>`을 실제 Git 저장소 URL로 교체합니다:
+`argocd-apps/` 내 각 파일에서 repoURL을 고객의 Git 저장소 URL로 교체합니다:
 
 ```yaml
 # argocd-apps/sysdig-shield-dev.yaml 등
@@ -30,7 +30,7 @@ sources:
     valueFiles:
     - $values/helm-values/base-values.yaml
     - $values/helm-values/dev-values.yaml
-- repoURL: <YOUR_REPO_URL>              # ← 여기를 실제 URL로 교체
+- repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
   targetRevision: HEAD
   ref: values
 ```
@@ -123,5 +123,6 @@ helm install sysdig-shield sysdig/shield \
 
 - [Helm 차트 설정 상세](helm-integration.md)
 - [테스트 및 검증 절차](testing.md)
+- [AWS SM + ESO 시크릿 관리](aws-secrets-manager-guide.md)
 - [문제 해결 가이드](troubleshooting.md)
 - [보안 강화 체크리스트](security.md)

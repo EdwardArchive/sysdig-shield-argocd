@@ -191,6 +191,7 @@ vault kv get secret/sysdig
 
 ## 참고 자료
 
+- [AWS SM + ESO 상세 가이드](../docs/aws-secrets-manager-guide.md) — 멀티 클러스터 AWS SM 연동 상세
 - [External Secrets Operator 공식 문서](https://external-secrets.io/)
 - [Sealed Secrets GitHub](https://github.com/bitnami-labs/sealed-secrets)
 - [ArgoCD Vault Plugin](https://argocd-vault-plugin.readthedocs.io/)

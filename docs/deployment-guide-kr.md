@@ -157,7 +157,7 @@ spec:
       valueFiles:
       - $values/helm-values/base-values.yaml
       - $values/helm-values/dev-values.yaml
-  - repoURL: <YOUR_REPO_URL>               # Values 파일 소스
+  - repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git               # Values 파일 소스
     targetRevision: HEAD
     ref: values
   destination:
@@ -288,7 +288,7 @@ Helm values (`helm-values/`) 기준:
 ### 3.1 플레이스홀더 repoURL (설정 필요)
 
 **위치**: `argocd-apps/` 내 3개 파일
-**내용**: values 소스의 `repoURL` 값이 `<YOUR_REPO_URL>`로 설정됨
+**내용**: values 소스의 `repoURL` 값이 `https://github.com/EdwardArchive/sysdig-shield-argocd.git`로 설정됨
 **조치**: 배포 전 실제 Git 저장소 URL로 교체 필요
 
 ### 3.2 Helm Values 리소스 미지정 (Medium)
@@ -405,7 +405,7 @@ spec:
     helm:
       valueFiles:
       - $values/helm-values/agent-only-values.yaml
-  - repoURL: <YOUR_REPO_URL>
+  - repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
     targetRevision: HEAD
     ref: values
   destination:

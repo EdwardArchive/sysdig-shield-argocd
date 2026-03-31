@@ -68,7 +68,8 @@ kubectl create secret generic sysdig-agent \
 
 ### 2. ArgoCD Application의 `repoURL` 설정
 
-`argocd-apps/` 내 각 파일에서 `<YOUR_REPO_URL>`을 실제 Git 저장소 URL로 교체합니다.
+`argocd-apps/` 내 각 파일에서 repoURL을 고객의 Git 저장소 URL로 교체합니다.
+이 저장소를 Fork하여 사용하거나, 별도 저장소에 `helm-values/` 디렉토리를 복사합니다.
 
 ### 3. ArgoCD로 배포
 
@@ -114,6 +115,7 @@ sysdig-shield-argocd/
 │   └── cert-manager/                 # TLS 인증서 관리
 │
 ├── test/                             # 테스트 및 검증
+│   ├── minikube-test-deploy.sh       # minikube ArgoCD 배포 테스트 스크립트
 │   ├── connectivity-test.yaml        # Sysdig 백엔드 연결 테스트
 │   ├── sample-deployment.yaml        # 정상 배포 테스트
 │   ├── policy-violation.yaml         # 정책 위반 테스트
@@ -129,7 +131,9 @@ sysdig-shield-argocd/
 │   ├── monitoring.md                 # Prometheus/Grafana 모니터링
 │   ├── maintenance.md                # 유지보수, 업그레이드, DR
 │   ├── security.md                   # 보안 강화 및 인시던트 대응
-│   └── troubleshooting.md            # 문제 해결
+│   ├── troubleshooting.md            # 문제 해결
+│   ├── aws-secrets-manager-guide.md  # AWS SM + ESO 시크릿 관리 가이드
+│   └── illumio-minikube-network-issue.md # Illumio VEN + minikube 네트워크 분석
 │
 ├── README.md
 ├── CLAUDE.md
@@ -152,8 +156,8 @@ sources:
     valueFiles:
     - $values/helm-values/base-values.yaml
     - $values/helm-values/<ENV>-values.yaml
-- repoURL: <YOUR_REPO_URL>
-  targetRevision: HEAD
+- repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
+  targetRevision: main
   ref: values
 ```
 
@@ -188,7 +192,10 @@ sources:
 | [docs/maintenance.md](docs/maintenance.md) | 유지보수, 업그레이드, DR |
 | [docs/security.md](docs/security.md) | 보안 강화 및 인시던트 대응 |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | 문제 해결 |
+| [docs/aws-secrets-manager-guide.md](docs/aws-secrets-manager-guide.md) | AWS SM + ESO 시크릿 관리 |
+| [docs/illumio-minikube-network-issue.md](docs/illumio-minikube-network-issue.md) | Illumio + minikube 네트워크 분석 |
 | [secrets/README.md](secrets/README.md) | 시크릿 관리 가이드 |
+| [test/rollback-test.md](test/rollback-test.md) | 롤백 검증 절차 |
 
 ## 라이선스
 

@@ -20,7 +20,7 @@ spec:
       valueFiles:
       - $values/helm-values/base-values.yaml
       - $values/helm-values/dev-values.yaml
-  - repoURL: <YOUR_REPO_URL>
+  - repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
     targetRevision: HEAD
     ref: values
 

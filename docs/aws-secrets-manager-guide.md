@@ -39,13 +39,13 @@
 # Sysdig Access Key 저장
 aws secretsmanager create-secret \
   --name sysdig/access-key \
-  --secret-string '{"access-key":"69c9e8da-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}' \
+  --secret-string '{"access-key":"YOUR-ACCESS-KEY-UUID"}' \
   --region ap-northeast-2
 
 # Sysdig API Token 저장
 aws secretsmanager create-secret \
   --name sysdig/api-token \
-  --secret-string '{"secure-api-token":"a6efd4ee-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}' \
+  --secret-string '{"secure-api-token":"YOUR-API-TOKEN-UUID"}' \
   --region ap-northeast-2
 ```
 
@@ -216,9 +216,9 @@ sysdig_endpoint:
   region: custom
   access_key_existing_secret: sysdig-agent           # ESO가 생성한 Secret
   secure_api_token_existing_secret: sysdig-api-token  # ESO가 생성한 Secret
-  api_url: https://sysdig-kakao.cshift.co/
+  api_url: https://<YOUR_SYSDIG_DOMAIN>/
   collector:
-    host: sysdig-kakao.cshift.co
+    host: <YOUR_SYSDIG_DOMAIN>
     port: 6443
 ```
 

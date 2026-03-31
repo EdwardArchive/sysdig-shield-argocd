@@ -15,14 +15,17 @@ kubectl logs -f daemonset/sysdig-agent -n sysdig-shield
 kubectl get secret sysdig-agent -n sysdig-shield -o jsonpath='{.data.access-key}' | base64 -d
 
 # 연결 테스트
-kubectl exec -it daemonset/sysdig-agent -n sysdig-shield -- curl -v https://app.sysdigcloud.com/api/ping
+# SaaS: https://app.us1.sysdig.com/api/ping (리전에 따라 변경)
+# 온프렘: https://<YOUR_SYSDIG_DOMAIN>/api/ping
+kubectl exec -it daemonset/sysdig-agent -n sysdig-shield -- curl -v https://<YOUR_SYSDIG_DOMAIN>/api/ping
 ```
 
 **해결 방법**:
 - Access Key가 올바른지 확인
 - 네트워크 정책이 Sysdig 백엔드로의 Egress를 허용하는지 확인
-- 방화벽이 HTTPS 트래픽(app.sysdigcloud.com)을 허용하는지 확인
+- 방화벽이 HTTPS 트래픽(Sysdig 백엔드 도메인)을 허용하는지 확인
 - 리전별 Collector URL이 올바른지 확인 ([설치 가이드](installation.md) 리전 표 참조)
+- 온프렘 환경에서는 `ssl.verify: false` 설정 확인
 
 ### Admission Controller가 모든 배포를 차단
 
