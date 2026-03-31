@@ -100,7 +100,7 @@ else
     log "ArgoCD 설치 중..."
     kubectl create namespace "$ARGOCD_NS" 2>&1 | tee -a "$LOG_FILE"
     kubectl apply -n "$ARGOCD_NS" \
-        -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml 2>&1 | tee -a "$LOG_FILE"
+        -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml 2>&1 | tee -a "$LOG_FILE" || true
 
     log "ArgoCD 파드 준비 대기 (최대 5분)..."
     kubectl wait --for=condition=available deployment/argocd-server \
