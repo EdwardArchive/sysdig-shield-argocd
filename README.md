@@ -54,7 +54,53 @@ ArgoCD를 활용한 GitOps 기반 Sysdig Shield 보안 플랫폼의 Kubernetes �
 - **ArgoCD**: v2.8 이상 (Multi-Source 지원 필요)
 - **Sysdig 계정**: Sysdig Secure 구독 및 Access Key
 
-## 빠른 시작
+## 고객 배포 가이드
+
+이 저장소는 **템플릿/레퍼런스** 역할입니다. 고객 환경에 배포할 때는 아래 절차를 따릅니다.
+
+### Step 1: 저장소 복제
+
+고객의 Git 저장소(GitHub, GitLab 등)에 이 저장소를 Fork하거나 복사합니다:
+
+```bash
+# 방법 A: GitHub Fork
+# https://github.com/EdwardArchive/sysdig-shield-argocd 에서 Fork 버튼 클릭
+
+# 방법 B: 별도 저장소에 복사
+git clone https://github.com/EdwardArchive/sysdig-shield-argocd.git
+cd sysdig-shield-argocd
+git remote set-url origin https://github.com/<CUSTOMER_ORG>/sysdig-shield-argocd.git
+git push -u origin main
+```
+
+### Step 2: 고객 환경에 맞게 수정
+
+```bash
+# 1. helm-values/base-values.yaml — Sysdig 엔드포인트, 리전 등 수정
+# 2. argocd-apps/*.yaml — repoURL을 고객 Git 저장소 URL로 변경
+# 3. 환경별 values 파일 — 클러스터 이름, 리소스 제한 등 조정
+```
+
+### Step 3: 시크릿 생성 (클러스터에 직접)
+
+```bash
+kubectl create namespace sysdig-shield
+kubectl create secret generic sysdig-agent \
+  --from-literal=access-key=<CUSTOMER_ACCESS_KEY> \
+  -n sysdig-shield
+```
+
+> 멀티 클러스터 환경에서는 [AWS SM + ESO](docs/aws-secrets-manager-guide.md)로 시크릿을 자동 관리할 수 있습니다.
+
+### Step 4: ArgoCD Application 적용
+
+```bash
+kubectl apply -f argocd-apps/sysdig-shield-dev.yaml
+```
+
+이후 Git에 push하면 ArgoCD가 자동으로 변경을 감지하고 재배포합니다.
+
+## 빠른 시작 (내부 테스트용)
 
 ### 1. 시크릿 설정
 
