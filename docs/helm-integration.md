@@ -1,30 +1,32 @@
-# Helm Integration Guide
+# Helm 차트 통합 가이드
 
-This guide explains how to use official Sysdig Helm charts as an alternative to Kustomize-based deployments.
+Kustomize 기반 배포의 대안으로 공식 Sysdig Helm 차트를 사용하는 방법을 설명합니다.
 
-## Overview
+## 개요
 
-While this repository uses Kustomize as the primary deployment method, you can also use the official Sysdig Helm charts with environment-specific values files.
+이 저장소는 Kustomize를 주요 배포 방식으로 사용하지만, 공식 Sysdig Helm 차트와 환경별 values 파일을 활용한 배포도 지원합니다.
 
-## Helm Chart Information
+## Helm 차트 정보
 
-- **Chart Repository**: https://charts.sysdig.com
-- **Chart Name**: `sysdig/shield`
-- **Recommended Version**: Pin to specific version (e.g., 1.28.0)
-- **Configuration Structure**: Feature-based configuration using `features` key
+- **차트 저장소**: https://charts.sysdig.com
+- **차트 이름**: `sysdig/shield`
+- **권장 버전**: 특정 버전 고정 (예: 1.28.0)
+- **설정 구조**: `features` 키 기반 기능별 설정
 
-## Setup
+> **출처**: [Sysdig Helm Charts GitHub](https://github.com/sysdiglabs/charts)
 
-### 1. Add Sysdig Helm Repository
+## 설정
+
+### 1. Sysdig Helm 저장소 추가
 
 ```bash
 helm repo add sysdig https://charts.sysdig.com
 helm repo update
 ```
 
-### 2. Install with Environment-Specific Values
+### 2. 환경별 설치
 
-#### Dev Environment
+#### 개발 환경
 ```bash
 helm install sysdig-shield sysdig/shield \
   --namespace sysdig-shield \
@@ -34,7 +36,7 @@ helm install sysdig-shield sysdig/shield \
   --values helm-values/dev-values.yaml
 ```
 
-#### Staging Environment
+#### 스테이징 환경
 ```bash
 helm install sysdig-shield sysdig/shield \
   --namespace sysdig-shield \
@@ -44,7 +46,7 @@ helm install sysdig-shield sysdig/shield \
   --values helm-values/staging-values.yaml
 ```
 
-#### Production Environment
+#### 운영 환경
 ```bash
 helm install sysdig-shield sysdig/shield \
   --namespace sysdig-shield \
@@ -54,74 +56,68 @@ helm install sysdig-shield sysdig/shield \
   --values helm-values/production-values.yaml
 ```
 
-## Feature-Based Configuration
+## 기능별 설정 구조
 
-The sysdig/shield chart uses a feature-based configuration structure. Key features include:
-
-### Core Structure
+### 기본 클러스터 설정
 ```yaml
 cluster_config:
   name: "cluster-name"
-  cluster_type: generic
-  tags:
-    environment: production
 
 sysdig_endpoint:
-  region: us1  # or us2, us3, us4, eu1, au1
+  region: us1  # us1, us2, us3, us4, eu1, au1, me2
   access_key_existing_secret: sysdig-agent
 ```
 
-### Available Features
-- **admission_control**: Policy enforcement at deployment time
-  - `failure_policy`: Fail (block) or Ignore (audit)
-  - `dry_run`: Test policies without enforcement
-  - `container_vulnerability_management`: Block vulnerable images
-  - `posture`: Enforce posture compliance
-  - `supply_chain`: Image signature verification
+### 주요 기능
 
-- **posture**: Security posture assessment
-  - `cluster_posture`: Kubernetes configuration scanning
-  - `host_posture`: Host OS compliance checks
+- **admission_control**: 배포 시점 정책 검증
+  - `failure_policy`: Fail (차단) 또는 Ignore (감사)
+  - `dry_run`: 정책 테스트 (적용 없이 로깅만)
+  - `container_vulnerability_management`: 취약 이미지 차단
+  - `posture`: 포스처 규정 준수 검증
 
-- **vulnerability_management**: CVE detection
-  - `container_vulnerability_management`: Container image scanning
-  - `host_vulnerability_management`: Host OS vulnerability scanning
-  - `in_use`: Track only in-use packages
+- **posture**: 보안 태세 평가
+  - `cluster_posture`: Kubernetes 구성 스캔
+  - `host_posture`: 호스트 OS 규정 준수 검사
 
-- **detections**: Runtime threat detection
-  - `drift_control`: Detect executable changes
-  - `malware_control`: Malware detection
-  - `ml_policies`: ML-based anomaly detection
-  - `kubernetes_audit`: Audit log analysis
-  - `file_integrity_monitoring`: File change tracking
+- **vulnerability_management**: CVE 탐지
+  - `container_vulnerability_management`: 컨테이너 이미지 스캔
+  - `host_vulnerability_management`: 호스트 OS 취약점 스캔
+  - `in_use`: 실제 사용 중인 패키지만 추적
 
-- **investigations**: Forensics and troubleshooting
-  - `activity_audit`: System call auditing
-  - `network_security`: Network traffic monitoring
-  - `captures`: Packet capture capability
+- **detections**: 런타임 위협 탐지
+  - `drift_control`: 실행 파일 변경 감지
+  - `malware_control`: 악성코드 탐지
+  - `ml_policies`: ML 기반 이상 행위 탐지
+  - `kubernetes_audit`: 감사 로그 분석
+  - `file_integrity_monitoring`: 파일 변경 추적
 
-- **respond**: Automated response actions
-  - `rapid_response`: Interactive shell access
+- **investigations**: 포렌식 및 조사
+  - `activity_audit`: 시스템 콜 감사
+  - `network_security`: 네트워크 트래픽 모니터링
+  - `captures`: 패킷 캡처
 
-- **monitor**: Observability features
-  - `prometheus`: Metrics export
-  - `kubernetes_events`: Event collection
-  - `kube_state_metrics`: Cluster state metrics
+- **respond**: 자동 대응
+  - `rapid_response`: 인터랙티브 셸 접근
 
-## Hybrid Approach: Helm + Kustomize
+> **출처**: [Sysdig Shield Helm Chart 문서](https://docs.sysdig.com/en/docs/installation/sysdig-secure/install-agent-components/kubernetes/#install-using-helm)
 
-Combine Helm templates with Kustomize patches:
+## 하이브리드 방식: Helm + Kustomize
+
+Helm 템플릿과 Kustomize 패치를 결합할 수 있습니다:
 
 ```bash
-# Render Helm chart to YAML
+# Helm 차트를 YAML로 렌더링 후 Kustomize 적용
 helm template sysdig-shield sysdig/shield \
   --version 1.28.0 \
   --values helm-values/base-values.yaml \
   --namespace sysdig-shield | kubectl kustomize kustomize/overlays/production/
 ```
 
-## Comparison: Helm vs Kustomize
+## 비교: Helm vs Kustomize
 
-- Use **Helm** for official chart updates and simpler upgrades
-- Use **Kustomize** for fine-grained control and custom patches
-- Use **Hybrid** for best of both worlds
+| 항목 | Helm | Kustomize |
+|------|------|-----------|
+| **장점** | 공식 차트 업데이트, 간편한 업그레이드 | 세밀한 제어, 커스텀 패치 |
+| **적합** | 표준 배포, 빠른 시작 | 고급 설정, 환경별 세밀 조정 |
+| **조합** | 하이브리드 방식으로 양쪽 장점 활용 가능 | |

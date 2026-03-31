@@ -1,113 +1,113 @@
-# Troubleshooting Guide
+# 문제 해결 가이드
 
-## Common Issues
+## 일반적인 문제
 
-### Sysdig Agent Not Connecting
+### Sysdig Agent 연결 불가
 
-**Symptoms**: Agent pods running but not reporting to Sysdig backend
+**증상**: Agent 파드가 실행 중이나 Sysdig 백엔드에 데이터를 전송하지 않음
 
-**Diagnosis**:
+**진단**:
 ```bash
-# Check agent logs
+# Agent 로그 확인
 kubectl logs -f daemonset/sysdig-agent -n sysdig-shield
 
-# Verify access key
+# Access Key 확인
 kubectl get secret sysdig-agent -n sysdig-shield -o jsonpath='{.data.access-key}' | base64 -d
 
-# Test connectivity
+# 연결 테스트
 kubectl exec -it daemonset/sysdig-agent -n sysdig-shield -- curl -v https://app.sysdigcloud.com/api/ping
 ```
 
-**Solutions**:
-- Verify access key is correct
-- Check network policies allow egress to Sysdig backend
-- Verify firewall rules allow HTTPS to app.sysdigcloud.com
+**해결 방법**:
+- Access Key가 올바른지 확인
+- 네트워크 정책이 Sysdig 백엔드로의 Egress를 허용하는지 확인
+- 방화벽이 HTTPS 트래픽(app.sysdigcloud.com)을 허용하는지 확인
+- 리전별 Collector URL이 올바른지 확인 ([설치 가이드](installation.md) 리전 표 참조)
 
-### Admission Controller Blocking All Deployments
+### Admission Controller가 모든 배포를 차단
 
-**Symptoms**: All pod creations fail with webhook timeout or rejection
+**증상**: 모든 파드 생성이 웹훅 타임아웃 또는 거부로 실패
 
-**Emergency Bypass**:
+**긴급 우회**:
 ```bash
-# Delete webhook configuration (emergency only)
+# 웹훅 설정 삭제 (긴급 상황에서만)
 kubectl delete validatingwebhookconfiguration sysdig-admission-controller
 
-# Redeploy after fixing
+# 수정 후 재배포
 argocd app sync sysdig-shield-production
 ```
 
-**Root Causes**:
-- Admission controller pods not ready
-- TLS certificate issues
-- Network policy blocking API server communication
+**근본 원인 확인**:
+- AC 파드가 Ready 상태가 아님
+- TLS 인증서 문제
+- 네트워크 정책이 API 서버 통신을 차단
 
-**Solutions**:
+**해결 방법**:
 ```bash
-# Check admission controller status
+# AC 상태 확인
 kubectl get pods -n sysdig-shield -l app.kubernetes.io/name=sysdig-admission-controller
 
-# Verify webhook configuration
+# 웹훅 설정 확인
 kubectl describe validatingwebhookconfiguration sysdig-admission-controller
 
-# Check TLS certificate
+# TLS 인증서 확인
 kubectl get secret sysdig-admission-controller-tls -n sysdig-shield
 ```
 
-### Network Connectivity Issues
+### 네트워크 연결 문제
 
-**Symptoms**: Pods can't reach Sysdig backend or each other
+**증상**: 파드가 Sysdig 백엔드 또는 다른 파드에 연결할 수 없음
 
-**Diagnosis**:
+**진단**:
 ```bash
-# Test DNS resolution
+# DNS 확인
 kubectl run -it --rm debug --image=busybox --restart=Never -- nslookup app.sysdigcloud.com
 
-# Test connectivity
+# 연결 테스트
 kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -v https://app.sysdigcloud.com
 ```
 
-**Solutions**:
-- Review network policies
-- Verify DNS egress is allowed
-- Check firewall rules
+**해결 방법**:
+- 네트워크 정책 검토 (`kustomize/base/network-policies/`)
+- DNS Egress 허용 여부 확인 (`dns-egress.yaml`)
+- 방화벽 규칙 확인
 
-### ArgoCD Sync Failures
+### ArgoCD 동기화 실패
 
-**Symptoms**: ArgoCD shows "OutOfSync" or sync fails
+**증상**: ArgoCD에서 "OutOfSync" 표시 또는 동기화 실패
 
-**Diagnosis**:
+**진단**:
 ```bash
 argocd app get sysdig-shield-production --show-events
 argocd app diff sysdig-shield-production
 ```
 
-**Solutions**:
+**해결 방법**:
 ```bash
-# Force sync with prune
+# 강제 동기화 (prune 포함)
 argocd app sync sysdig-shield-production --force --prune
 
-# Hard refresh
+# 하드 리프레시
 argocd app sync sysdig-shield-production --force --replace
 ```
 
-## Performance Issues
+## 성능 문제
 
-### High Resource Usage
+### 높은 리소스 사용
 
-Monitor resource consumption:
 ```bash
 kubectl top pods -n sysdig-shield
 kubectl top nodes
 ```
 
-Adjust resource limits in environment overlays.
+환경별 오버레이에서 리소스 제한을 조정합니다. 상세 설정은 [설치 가이드](installation.md)의 리소스 제한 표를 참조하세요.
 
-### Image Scanning Delays
+### 이미지 스캔 지연
 
-Configure scan caching and rate limiting in node-analyzer ConfigMap.
+Node Analyzer ConfigMap에서 스캔 캐싱 및 속도 제한을 설정합니다.
 
-## Support Resources
+## 지원
 
-- [Sysdig Support Portal](https://support.sysdig.com)
-- [Sysdig Documentation](https://docs.sysdig.com)
-- GitHub Issues: (this repository)
+- **Sysdig 지원 포털**: https://support.sysdig.com
+- **Sysdig 공식 문서**: https://docs.sysdig.com
+- **ArgoCD 공식 문서**: https://argo-cd.readthedocs.io/

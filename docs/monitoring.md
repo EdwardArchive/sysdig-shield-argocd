@@ -1,27 +1,23 @@
-# Monitoring Guide
+# 모니터링 가이드
 
-## Sysdig Component Health Monitoring
+## 개요
 
-### Overview
+Sysdig Shield 컴포넌트의 상태를 Prometheus/Grafana를 통해 모니터링하고, 주요 장애 시나리오에 대한 알림을 설정하는 방법을 설명합니다.
 
-This guide covers setting up Prometheus/Grafana monitoring for Sysdig Shield components and configuring alerts for critical failure scenarios.
+## Prometheus 모니터링
 
-## Prometheus Monitoring
+### 메트릭 엔드포인트
 
-### Metrics Endpoints
-
-Sysdig Shield components expose Prometheus metrics on the following ports:
-
-| Component | Port | Path |
-|-----------|------|------|
+| 컴포넌트 | 포트 | 경로 |
+|----------|------|------|
 | sysdig-agent | 24231 | /metrics |
 | admission-controller | 8080 | /metrics |
 | node-analyzer | 8080 | /metrics |
 | kspm-collector | 8080 | /metrics |
 
-### ServiceMonitor Configuration
+### ServiceMonitor 설정
 
-If using the Prometheus Operator, create ServiceMonitors to scrape component metrics:
+Prometheus Operator를 사용하는 경우 ServiceMonitor를 생성합니다:
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
@@ -41,76 +37,78 @@ spec:
     path: /metrics
 ```
 
-### Key Metrics to Monitor
+> **출처**: [Prometheus Operator - ServiceMonitor](https://prometheus-operator.dev/docs/user-guides/getting-started/)
 
-**Agent Metrics:**
-- `sysdig_agent_connected` — 1 when connected to backend, 0 when disconnected
-- `sysdig_agent_events_total` — Total security events generated
-- `sysdig_agent_cpu_usage_ratio` — Agent CPU usage (alert if > 0.8)
-- `sysdig_agent_memory_bytes` — Agent memory usage
+### 주요 모니터링 메트릭
 
-**Admission Controller Metrics:**
-- `admission_controller_requests_total` — Total webhook requests
-- `admission_controller_requests_denied_total` — Denied requests (policy violations)
-- `admission_controller_request_duration_seconds` — Request latency
-- `admission_controller_errors_total` — Internal errors
+**Agent 메트릭:**
+- `sysdig_agent_connected` — 백엔드 연결 상태 (1=연결, 0=단절)
+- `sysdig_agent_events_total` — 생성된 보안 이벤트 총 수
+- `sysdig_agent_cpu_usage_ratio` — Agent CPU 사용률 (0.8 초과 시 알림)
+- `sysdig_agent_memory_bytes` — Agent 메모리 사용량
 
-**Node Analyzer Metrics:**
-- `node_analyzer_scans_total` — Total image scans completed
-- `node_analyzer_scan_errors_total` — Failed scans
-- `node_analyzer_queue_depth` — Scan queue depth
+**Admission Controller 메트릭:**
+- `admission_controller_requests_total` — 웹훅 요청 총 수
+- `admission_controller_requests_denied_total` — 거부된 요청 (정책 위반)
+- `admission_controller_request_duration_seconds` — 요청 지연 시간
+- `admission_controller_errors_total` — 내부 오류 수
 
-## Alert Configuration
+**Node Analyzer 메트릭:**
+- `node_analyzer_scans_total` — 완료된 이미지 스캔 수
+- `node_analyzer_scan_errors_total` — 실패한 스캔 수
+- `node_analyzer_queue_depth` — 스캔 대기열 깊이
 
-### Critical Alerts
+## 알림 설정
+
+### 주요 알림 규칙
 
 ```yaml
 groups:
 - name: sysdig-shield-critical
   rules:
 
-  # Agent disconnected from backend
+  # Agent 백엔드 연결 끊김
   - alert: SysdigAgentDisconnected
     expr: sysdig_agent_connected == 0
     for: 5m
     labels:
       severity: critical
     annotations:
-      summary: "Sysdig agent disconnected on {{ $labels.node }}"
-      description: "Agent has been disconnected for 5+ minutes. Security monitoring is impaired."
-      runbook: "https://github.com/your-org/sysdig-shield-argocd/blob/main/docs/troubleshooting.md"
+      summary: "Sysdig Agent 연결 끊김: {{ $labels.node }}"
+      description: "5분 이상 Agent 연결이 끊긴 상태. 보안 모니터링에 영향."
+      runbook: "docs/troubleshooting.md"
 
-  # Admission controller not responding
+  # Admission Controller 미응답
   - alert: SysdigAdmissionControllerDown
     expr: up{job="sysdig-admission-controller"} == 0
     for: 2m
     labels:
       severity: critical
     annotations:
-      summary: "Sysdig admission controller is down"
-      description: "No admission controller pods responding. Policy enforcement may be affected."
+      summary: "Sysdig Admission Controller 다운"
+      description: "AC 파드가 응답하지 않음. 정책 적용에 영향."
 
-  # Admission controller high error rate
+  # AC 높은 오류율
   - alert: SysdigAdmissionControllerErrors
     expr: rate(admission_controller_errors_total[5m]) > 0.1
     for: 5m
     labels:
       severity: warning
     annotations:
-      summary: "Sysdig admission controller high error rate"
-      description: "Error rate > 10% over 5 minutes."
+      summary: "Sysdig AC 높은 오류율"
+      description: "5분간 오류율이 10%를 초과."
 
-  # Webhook latency too high
+  # 웹훅 높은 지연 시간
   - alert: SysdigWebhookHighLatency
     expr: histogram_quantile(0.99, rate(admission_controller_request_duration_seconds_bucket[5m])) > 5
     for: 5m
     labels:
       severity: warning
     annotations:
-      summary: "Sysdig admission controller webhook latency high"
-      description: "P99 webhook latency exceeds 5s. Deployments may timeout."
+      summary: "Sysdig 웹훅 높은 지연 시간"
+      description: "P99 웹훅 지연이 5초를 초과. 배포 타임아웃 가능."
 
-  # Pod crash looping
+  # 파드 Crash Looping
   - alert: SysdigPodCrashLooping
     expr: |
       increase(kube_pod_container_status_restarts_total{
@@ -120,24 +118,24 @@ groups:
     labels:
       severity: critical
     annotations:
-      summary: "Sysdig pod crash looping: {{ $labels.pod }}"
-      description: "Pod {{ $labels.pod }} has restarted more than 3 times in the last hour."
+      summary: "Sysdig 파드 크래시 루프: {{ $labels.pod }}"
+      description: "파드 {{ $labels.pod }}이(가) 1시간 내 3회 이상 재시작."
 
-  # Agent high CPU usage
+  # Agent 높은 CPU 사용
   - alert: SysdigAgentHighCPU
     expr: sysdig_agent_cpu_usage_ratio > 0.85
     for: 10m
     labels:
       severity: warning
     annotations:
-      summary: "Sysdig agent high CPU on {{ $labels.node }}"
-      description: "Agent CPU usage above 85% for 10 minutes. Consider adjusting resource limits."
+      summary: "Sysdig Agent 높은 CPU: {{ $labels.node }}"
+      description: "Agent CPU 사용률이 10분간 85%를 초과. 리소스 제한 조정 검토."
 ```
 
-### Add Alerts to Prometheus
+### PrometheusRule 적용
 
 ```bash
-# If using Prometheus Operator, create a PrometheusRule
+# Prometheus Operator를 사용하는 경우 PrometheusRule로 적용
 kubectl apply -f - <<EOF
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -147,57 +145,53 @@ metadata:
   labels:
     prometheus: kube-prometheus
     role: alert-rules
-$(cat <<'RULES'
 spec:
   groups:
-    # Paste the alert groups from above
-RULES
-)
+    # 위의 알림 규칙 그룹을 여기에 삽입
 EOF
 ```
 
-## Grafana Dashboard
+## Grafana 대시보드
 
-### Import Pre-built Dashboards
+### 사전 구성 대시보드 가져오기
 
-Sysdig publishes official Grafana dashboards. Import them using the dashboard IDs:
+Sysdig는 공식 Grafana 대시보드를 제공합니다:
 
 ```bash
-# Import via Grafana API
+# Grafana API를 통해 가져오기
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"dashboard": {"id": null, "uid": null}, "folderId": 0, "overwrite": false}' \
   http://admin:password@grafana:3000/api/dashboards/import
 ```
 
-### Key Dashboard Panels
+> **출처**: [Grafana 대시보드 가져오기](https://grafana.com/docs/grafana/latest/dashboards/manage-dashboards/)
 
-1. **Agent Status** — Map of connected/disconnected agents per node
-2. **Events Rate** — Security events generated per minute
-3. **Admission Decisions** — Allow/deny/error rates over time
-4. **Webhook Latency** — P50/P95/P99 request duration
-5. **Component Uptime** — Availability by component
+### 주요 대시보드 패널
 
-## Health Checks
+1. **Agent 상태** — 노드별 연결/단절 Agent 현황
+2. **이벤트 발생률** — 분당 보안 이벤트 발생 수
+3. **어드미션 결정** — 허용/거부/오류 비율 추이
+4. **웹훅 지연 시간** — P50/P95/P99 요청 처리 시간
+5. **컴포넌트 가동률** — 컴포넌트별 가용성
 
-### Readiness and Liveness
+## 헬스 체크
 
-Verify all components have healthy probes:
+### Readiness/Liveness 프로브 확인
 
 ```bash
 kubectl describe pods -n sysdig-shield | grep -A5 "Liveness\|Readiness"
 ```
 
-### ArgoCD Health Integration
+### ArgoCD 헬스 연동
 
-ArgoCD applications are configured with custom health checks (see [argocd-apps/](../argocd-apps/)). Monitor application health via:
+ArgoCD 애플리케이션에는 커스텀 헬스 체크가 설정되어 있습니다 (운영 환경의 경우 Lua 스크립트를 사용). 자세한 내용은 [`argocd-apps/sysdig-shield-production.yaml`](../argocd-apps/sysdig-shield-production.yaml)을 참조하세요.
 
 ```bash
 argocd app list | grep sysdig
 ```
 
-## On-Call Quick Reference
+## 온콜 빠른 참조
 
-For alert response procedures, see [incident-response.md](incident-response.md).
-
-For component-specific troubleshooting, see [troubleshooting.md](troubleshooting.md).
+- 알림 대응 절차: [security.md](security.md) (인시던트 대응 섹션)
+- 컴포넌트별 문제 해결: [troubleshooting.md](troubleshooting.md)

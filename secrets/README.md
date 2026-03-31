@@ -1,76 +1,80 @@
-# Secrets Management for Sysdig Shield
+# Sysdig Shield 시크릿 관리
 
-This directory contains examples and configurations for managing secrets in the Sysdig Shield deployment. **IMPORTANT**: Never commit plaintext secrets to Git.
+이 디렉토리는 Sysdig Shield 배포를 위한 시크릿 관리 예제와 설정을 포함합니다. **중요**: 평문 시크릿은 절대 Git에 커밋하지 마세요.
 
-## Three Supported Approaches
+## 3가지 지원 방식
 
-### 1. External Secrets Operator (Recommended)
+### 1. External Secrets Operator (권장)
 
-**Best for**: Organizations with existing secret stores (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager, Azure Key Vault)
+**적합 대상**: 기존 시크릿 저장소를 보유한 조직 (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager, Azure Key Vault)
 
-**Advantages**:
-- Integrates with existing secret infrastructure
-- Automatic secret rotation support
-- Centralized secret management
-- No secrets in Git repository
+**장점**:
+- 기존 시크릿 인프라와 연동
+- 자동 시크릿 순환 지원
+- 중앙 집중 시크릿 관리
+- Git 저장소에 시크릿 없음
 
-**Setup**:
-1. Install External Secrets Operator in your cluster
-2. Create a SecretStore or ClusterSecretStore (see `external-secrets/secret-store.yaml`)
-3. Create ExternalSecret resources (see `external-secrets/external-secret-sysdig-agent.yaml`)
-4. Operator syncs secrets from external store to Kubernetes Secrets
+**설정**:
+1. 클러스터에 External Secrets Operator 설치
+2. SecretStore 또는 ClusterSecretStore 생성 (`external-secrets/secret-store.yaml` 참조)
+3. ExternalSecret 리소스 생성 (`external-secrets/external-secret-sysdig-agent.yaml` 참조)
+4. Operator가 외부 저장소에서 Kubernetes Secret으로 자동 동기화
 
-**Required Secrets**:
-- `sysdig-agent`: Sysdig access key
-- `sysdig-admission-controller-tls`: TLS certificate and key for webhook
+**필수 시크릿**:
+- `sysdig-agent`: Sysdig Access Key
+- `sysdig-admission-controller-tls`: 웹훅용 TLS 인증서 및 키
+
+> **출처**: [External Secrets Operator 공식 문서](https://external-secrets.io/)
 
 ---
 
 ### 2. Sealed Secrets
 
-**Best for**: Smaller deployments without external secret infrastructure
+**적합 대상**: 외부 시크릿 인프라가 없는 소규모 배포
 
-**Advantages**:
-- Encrypted secrets can be committed to Git
-- No external dependencies beyond sealed-secrets controller
-- GitOps-friendly
+**장점**:
+- 암호화된 시크릿을 Git에 커밋 가능
+- sealed-secrets 컨트롤러 외 외부 의존성 없음
+- GitOps 친화적
 
-**Setup**:
-1. Install sealed-secrets controller in your cluster
-2. Use `kubeseal` CLI to encrypt secrets
-3. Commit SealedSecret resources to Git (see `sealed-secrets/sealed-secret-example.yaml`)
-4. Controller decrypts and creates Kubernetes Secrets
+**설정**:
+1. 클러스터에 sealed-secrets 컨트롤러 설치
+2. `kubeseal` CLI로 시크릿 암호화
+3. SealedSecret 리소스를 Git에 커밋 (`sealed-secrets/sealed-secret-example.yaml` 참조)
+4. 컨트롤러가 복호화 후 Kubernetes Secret 생성
 
-**Example**:
+**예시**:
 ```bash
-# Create secret and seal it
+# 시크릿 생성 및 봉인(Seal)
 kubectl create secret generic sysdig-agent \
   --from-literal=access-key=YOUR_SYSDIG_ACCESS_KEY \
   --dry-run=client -o yaml | \
   kubeseal -o yaml > sealed-secrets/sysdig-agent-sealed.yaml
 
-# Commit sealed secret to Git
+# 봉인된 시크릿을 Git에 커밋
 git add sealed-secrets/sysdig-agent-sealed.yaml
-git commit -m "Add sealed Sysdig access key"
+git commit -m "Sysdig Access Key Sealed Secret 추가"
 ```
+
+> **출처**: [Sealed Secrets GitHub](https://github.com/bitnami-labs/sealed-secrets)
 
 ---
 
 ### 3. ArgoCD Vault Plugin
 
-**Best for**: Organizations using HashiCorp Vault with ArgoCD
+**적합 대상**: ArgoCD와 함께 HashiCorp Vault를 사용하는 조직
 
-**Advantages**:
-- Secrets injected at deployment time
-- No secrets stored in ArgoCD
-- Works with existing Vault infrastructure
+**장점**:
+- 배포 시점에 시크릿 주입
+- ArgoCD에 시크릿 저장되지 않음
+- 기존 Vault 인프라 활용
 
-**Setup**:
-1. Configure ArgoCD with Vault plugin
-2. Use placeholders in manifests (see `argocd-vault-plugin/secret-with-placeholders.yaml`)
-3. ArgoCD replaces placeholders with actual values from Vault during sync
+**설정**:
+1. ArgoCD에 Vault 플러그인 설정
+2. 매니페스트에 플레이스홀더 사용 (`argocd-vault-plugin/secret-with-placeholders.yaml` 참조)
+3. ArgoCD 동기화 시 Vault에서 실제 값으로 대체
 
-**Example Placeholder**:
+**플레이스홀더 예시**:
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -80,112 +84,114 @@ data:
   access-key: <path:secret/data/sysdig#access-key | base64encode>
 ```
 
+> **출처**: [ArgoCD Vault Plugin 문서](https://argocd-vault-plugin.readthedocs.io/)
+
 ---
 
-## Secret Validation
+## 시크릿 검증
 
-Before deploying Sysdig Shield, validate your secrets:
+배포 전 시크릿을 검증합니다:
 
-### 1. Verify Sysdig Access Key Format
+### 1. Access Key 형식 확인
 ```bash
-# Access key should be a UUID or valid API key
+# Access Key는 UUID 또는 유효한 API 키여야 함
 kubectl get secret sysdig-agent -n sysdig-shield -o jsonpath='{.data.access-key}' | base64 -d
 ```
 
-### 2. Test Backend Connectivity
+### 2. 백엔드 연결 테스트
 ```bash
-# Test connection to Sysdig backend
+# Sysdig 백엔드 연결 테스트
 curl -H "Authorization: Bearer $(kubectl get secret sysdig-agent -n sysdig-shield -o jsonpath='{.data.access-key}' | base64 -d)" \
   https://app.sysdigcloud.com/api/ping
 ```
 
-Expected response: `{"status":"ok"}`
+예상 응답: `{"status":"ok"}`
 
-### 3. Verify TLS Certificates
+### 3. TLS 인증서 확인
 ```bash
-# Check certificate validity for admission controller
+# AC 인증서 유효 기간 확인
 kubectl get secret sysdig-admission-controller-tls -n sysdig-shield -o jsonpath='{.data.tls\.crt}' | \
   base64 -d | openssl x509 -noout -dates
 
-# Verify certificate matches service DNS
+# 인증서 DNS 이름 확인
 kubectl get secret sysdig-admission-controller-tls -n sysdig-shield -o jsonpath='{.data.tls\.crt}' | \
   base64 -d | openssl x509 -noout -text | grep DNS
 ```
 
-Expected DNS: `sysdig-admission-controller.sysdig-shield.svc`
+예상 DNS: `sysdig-admission-controller.sysdig-shield.svc`
 
-### 4. Pre-Deployment Checklist
-- [ ] Sysdig access key created in external secret store or sealed
-- [ ] Access key tested against Sysdig backend
-- [ ] TLS certificate generated for admission controller
-- [ ] Certificate valid for at least 90 days
-- [ ] Certificate DNS name matches service: `sysdig-admission-controller.sysdig-shield.svc`
-- [ ] No plaintext secrets in Git repository
-- [ ] Secret rotation schedule documented
+### 4. 배포 전 체크리스트
+- [ ] 외부 시크릿 저장소에 Access Key 생성 또는 Sealed Secret 생성
+- [ ] Sysdig 백엔드에 Access Key 연결 테스트 완료
+- [ ] AC용 TLS 인증서 생성 완료
+- [ ] 인증서 유효 기간 최소 90일 이상
+- [ ] 인증서 DNS 이름이 서비스와 일치: `sysdig-admission-controller.sysdig-shield.svc`
+- [ ] Git 저장소에 평문 시크릿 없음
+- [ ] 시크릿 순환 일정 문서화
 
 ---
 
-## Troubleshooting
+## 문제 해결
 
-### External Secrets Not Syncing
+### External Secrets 동기화 안 됨
 ```bash
-# Check ExternalSecret status
+# ExternalSecret 상태 확인
 kubectl describe externalsecret sysdig-agent -n sysdig-shield
 
-# Check SecretStore connectivity
+# SecretStore 연결 확인
 kubectl describe secretstore aws-secrets-manager -n sysdig-shield
 
-# View External Secrets Operator logs
+# External Secrets Operator 로그 확인
 kubectl logs -n external-secrets-system deployment/external-secrets
 ```
 
-### Sealed Secrets Not Decrypting
+### Sealed Secrets 복호화 안 됨
 ```bash
-# Verify sealed-secrets controller is running
+# sealed-secrets 컨트롤러 실행 확인
 kubectl get pods -n kube-system -l name=sealed-secrets-controller
 
-# Check controller logs
+# 컨트롤러 로그 확인
 kubectl logs -n kube-system -l name=sealed-secrets-controller
 
-# Verify SealedSecret was created
+# SealedSecret 생성 확인
 kubectl get sealedsecrets -n sysdig-shield
 ```
 
-### Vault Plugin Issues
+### Vault Plugin 문제
 ```bash
-# Check ArgoCD application events
+# ArgoCD 애플리케이션 이벤트 확인
 argocd app get sysdig-shield --show-events
 
-# Verify Vault authentication
+# Vault 인증 확인
 kubectl exec -it -n argocd deployment/argocd-repo-server -- vault status
 
-# Test Vault path access
+# Vault 경로 접근 테스트
 vault kv get secret/sysdig
 ```
 
 ---
 
-## Security Best Practices
+## 보안 모범 사례
 
-1. **Never commit plaintext secrets**: Use .gitignore to exclude secrets/ directory
-2. **Rotate secrets regularly**: Set up automated rotation (quarterly minimum)
-3. **Use least privilege**: Grant minimal IAM/RBAC permissions to secret stores
-4. **Audit secret access**: Enable audit logging in Vault/AWS Secrets Manager
-5. **Encrypt at rest**: Ensure Kubernetes secrets are encrypted (EncryptionConfiguration)
-6. **Monitor for leaks**: Use secret scanning tools (GitGuardian, TruffleHog)
+1. **평문 시크릿 커밋 금지**: .gitignore로 secrets/ 디렉토리 제외
+2. **정기적 시크릿 순환**: 자동 순환 설정 (최소 분기별)
+3. **최소 권한 사용**: 시크릿 저장소에 최소 IAM/RBAC 권한 부여
+4. **시크릿 접근 감사**: Vault/AWS Secrets Manager에서 감사 로깅 활성화
+5. **저장 시 암호화**: Kubernetes Secrets에 EncryptionConfiguration 적용
+6. **유출 감시**: 시크릿 스캔 도구 활용 (GitGuardian, TruffleHog)
 
 ---
 
-## Quick Reference
+## 빠른 참조
 
-| Secret Name | Purpose | Required | Format |
-|-------------|---------|----------|--------|
-| `sysdig-agent` | Sysdig backend authentication | Yes | `access-key`: UUID/API key |
-| `sysdig-admission-controller-tls` | Webhook TLS | Yes | `tls.crt`, `tls.key` |
+| 시크릿 이름 | 용도 | 필수 | 형식 |
+|-------------|------|------|------|
+| `sysdig-agent` | Sysdig 백엔드 인증 | 예 | `access-key`: UUID/API 키 |
+| `sysdig-admission-controller-tls` | 웹훅 TLS | 예 | `tls.crt`, `tls.key` |
 
-## Additional Resources
+## 참고 자료
 
-- [External Secrets Operator Docs](https://external-secrets.io/)
+- [External Secrets Operator 공식 문서](https://external-secrets.io/)
 - [Sealed Secrets GitHub](https://github.com/bitnami-labs/sealed-secrets)
 - [ArgoCD Vault Plugin](https://argocd-vault-plugin.readthedocs.io/)
-- [Sysdig Secure Documentation](https://docs.sysdig.com/en/sysdig-secure.html)
+- [Sysdig Secure 공식 문서](https://docs.sysdig.com/en/sysdig-secure.html)
