@@ -1,5 +1,5 @@
-# Dev environment Helm values for sysdig/shield chart
-# Extends base-values.yaml with dev-specific overrides
+# 개발 환경 Helm values
+# base-values.yaml을 상속하며, 개발 환경에 맞게 오버라이드합니다.
 
 cluster_config:
   name: "dev-cluster"
@@ -7,20 +7,18 @@ cluster_config:
     environment: dev
 
 features:
-  # Keep admission control in dry run for dev
+  # AC: dry-run 모드 (차단 없이 로그만)
   admission_control:
     enabled: true
     failure_policy: Ignore
     dry_run: true
 
-  # Disable some heavy features for dev
+  # 개발 환경에서 불필요한 기능 비활성화 (리소스 절약)
   posture:
     host_posture:
       enabled: false
 
   vulnerability_management:
-    container_vulnerability_management:
-      enabled: true
     host_vulnerability_management:
       enabled: false
     in_use:
@@ -28,22 +26,75 @@ features:
 
   detections:
     drift_control:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
     malware_control:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
+    ml_policies:
+      enabled: false
     kubernetes_audit:
-      enabled: false  # Disable audit in dev
+      enabled: false
+    file_integrity_monitoring:
+      enabled: false
 
   investigations:
     activity_audit:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
     live_logs:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
     network_security:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
     captures:
-      enabled: false  # Reduce overhead in dev
+      enabled: false
 
   respond:
     response_actions:
-      enabled: false  # Disable for dev
+      enabled: false
+    rapid_response:
+      enabled: false
+
+  # 모니터링은 유지 (개발 중 메트릭 확인 필요)
+  monitor:
+    app_checks:
+      enabled: true
+    prometheus:
+      enabled: true
+    kube_state_metrics:
+      enabled: true
+    kubernetes_events:
+      enabled: true
+    java_management_extensions:
+      enabled: false
+    statsd:
+      enabled: false
+
+# 개발 환경 리소스 축소
+host:
+  resources:
+    shield:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    kmodule:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+cluster:
+  replica_count: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  pod_disruption_budget:
+    create: false
+  additional_settings:
+    log_level: debug

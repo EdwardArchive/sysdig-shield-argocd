@@ -1,5 +1,5 @@
-# Staging environment Helm values for sysdig/shield chart
-# Extends base-values.yaml with staging-specific overrides
+# 스테이징 환경 Helm values
+# base-values.yaml을 상속하며, 운영과 동일한 기능을 활성화하여 사전 검증합니다.
 
 cluster_config:
   name: "staging-cluster"
@@ -7,46 +7,42 @@ cluster_config:
     environment: staging
 
 features:
-  # Test admission control in enforce mode
+  # AC: 실제 적용 모드이나 실패 시 통과 (Ignore)
   admission_control:
     enabled: true
     failure_policy: Ignore
     dry_run: false
 
-  posture:
-    cluster_posture:
-      enabled: true
-    host_posture:
-      enabled: true
-
-  vulnerability_management:
-    container_vulnerability_management:
-      enabled: true
-    host_vulnerability_management:
-      enabled: true
-    in_use:
-      enabled: true
-
+  # 모든 보안 기능 활성화 (운영과 동일하게 테스트)
   detections:
     drift_control:
-      enabled: true  # Test runtime threat detection
+      enabled: true
     malware_control:
-      enabled: true  # Test malware detection
+      enabled: true
+    ml_policies:
+      enabled: true
     kubernetes_audit:
+      enabled: true
+    file_integrity_monitoring:
       enabled: true
 
   investigations:
     activity_audit:
-      enabled: true  # Test forensics capabilities
+      enabled: true
     live_logs:
-      enabled: true  # Test log streaming
-    network_security:
-      enabled: true  # Test network monitoring
+      enabled: true
     captures:
-      enabled: true  # Test packet capture
+      enabled: true
+    network_security:
+      enabled: true
 
   respond:
     rapid_response:
-      enabled: true  # Test rapid response
+      enabled: true
     response_actions:
-      enabled: true  # Test automated responses
+      enabled: true
+
+cluster:
+  replica_count: 2
+  additional_settings:
+    log_level: info

@@ -1,20 +1,64 @@
-# Base Helm values for Sysdig Shield deployment
-# Chart: sysdig/shield
-# Version: 1.28.0 (latest)
+# Sysdig Shield Helm 기본 설정
+# 차트: sysdig/shield
+# 참조: https://github.com/sysdiglabs/charts/tree/master/charts/shield
 
+# ============================================================
+# 클러스터 설정
+# ============================================================
 cluster_config:
-  name: "kubernetes-cluster"
+  name: "onprem-sysdig"
+  cluster_domain: cluster.local
+  cluster_type: generic
+  root_namespace: kube-system
+  tags:
+    managed-by: argocd
 
+# ============================================================
+# Sysdig 엔드포인트 설정
+# ============================================================
 sysdig_endpoint:
-  region: us1
-  access_key_existing_secret: sysdig-agent
-  # access_key: "" # Use existing secret instead
+  # 온프레미스 환경은 custom 사용 (SaaS: us1, us2, eu1, au1, me2)
+  region: custom
+  access_key: <SYSDIG_ACCESS_KEY>
+  secure_api_token: <SYSDIG_API_TOKEN>
+  api_url: https://<DOMAIN_WHAT_YOU_SET>
+  collector:
+    host: <DOMAIN_WHAT_YOU_SET>
+    port: 6443
 
+# ============================================================
+# SSL 설정
+# ============================================================
+ssl:
+  # 내부 셀프사인 인증서 환경에서는 false
+  verify: false
+  ca:
+    certs: []
+    # 커스텀 CA 인증서가 있는 경우:
+    # existing_ca_secret: my-ca-secret
+    # existing_ca_secret_key_name: ca.crt
+
+# ============================================================
+# 프록시 설정 (필요 시 활성화)
+# ============================================================
+# proxy:
+#   http_proxy: http://proxy.example.com:8080
+#   https_proxy: http://proxy.example.com:8080
+#   no_proxy: localhost,127.0.0.1,.cluster.local
+
+# ============================================================
+# 기능 설정 (features)
+# ============================================================
 features:
-  # Admission Control (Admission Controller)
+
+  # --- Kubernetes 메타데이터 수집 ---
+  kubernetes_metadata:
+    enabled: true
+
+  # --- 어드미션 컨트롤 ---
   admission_control:
     enabled: true
-    failure_policy: Ignore  # Change to Fail after validation in production
+    failure_policy: Ignore
     dry_run: false
     timeout: 10
     http_port: 8443
@@ -27,36 +71,39 @@ features:
       enabled: true
     posture:
       enabled: true
+    supply_chain:
+      enabled: false
+      image_signature:
+        enabled: false
 
-  # Kubernetes Metadata
-  kubernetes_metadata:
-    enabled: true
-
-  # Posture (KSPM)
+  # --- 보안 태세 평가 (Posture / KSPM) ---
   posture:
-    cluster_posture:
-      enabled: true
     host_posture:
       enabled: true
+    cluster_posture:
+      enabled: true
 
-  # Vulnerability Management (Node Analyzer)
+  # --- 취약점 관리 ---
   vulnerability_management:
     container_vulnerability_management:
       enabled: true
+      platform_services_enabled: true
+      registry_ssl:
+        verify: true
     host_vulnerability_management:
       enabled: true
     in_use:
       enabled: true
       integration_enabled: true
 
-  # Detections
+  # --- 위협 탐지 ---
   detections:
     drift_control:
       enabled: true
     malware_control:
       enabled: true
     ml_policies:
-      enabled: false
+      enabled: true
     kubernetes_audit:
       enabled: true
       timeout: 10
@@ -64,21 +111,89 @@ features:
       excluded_namespaces:
         - kube-system
         - kube-public
+    file_integrity_monitoring:
+      enabled: false
 
-  # Investigations
+  # --- 감사 및 포렌식 ---
   investigations:
     activity_audit:
       enabled: true
     live_logs:
       enabled: true
-    network_security:
-      enabled: true
     captures:
       enabled: true
-
-  # Respond
-  respond:
-    rapid_response:
+    network_security:
+      enabled: true
+    audit_tap:
       enabled: false
+    event_forwarder:
+      enabled: false
+
+  # --- 인시던트 대응 ---
+  respond:
     response_actions:
       enabled: true
+    rapid_response:
+      enabled: true
+      password: <RAPID_RESPONSE_PASSWORD>
+
+  # --- 모니터링 (Sysdig Monitor) ---
+  monitor:
+    app_checks:
+      enabled: true
+    java_management_extensions:
+      enabled: true
+    prometheus:
+      enabled: true
+    statsd:
+      enabled: true
+    kube_state_metrics:
+      enabled: true
+    kubernetes_events:
+      enabled: true
+
+# ============================================================
+# 호스트 Agent 설정 (DaemonSet)
+# ============================================================
+host:
+  # eBPF 기반 드라이버 (커널 모듈 불필요, Bottlerocket 등 대응)
+  driver: universal_ebpf
+
+  additional_settings:
+    ssl_verify_certificate: false
+
+  resources:
+    shield:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1500m"
+    kmodule:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1500m"
+
+# ============================================================
+# Cluster Shield 설정 (Deployment — AC, KSPM 등)
+# ============================================================
+cluster:
+  additional_settings:
+    log_level: info
+    monitoring_port: 8080
+  enable_prometheus_scraping: true
+  replica_count: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
+  pod_disruption_budget:
+    create: true
+    min_available: 1

@@ -1,5 +1,5 @@
-# Production environment Helm values for sysdig/shield chart
-# Extends base-values.yaml with production-specific overrides
+# 운영 환경 Helm values
+# base-values.yaml을 상속하며, 최대 보안 및 고가용성 설정을 적용합니다.
 
 cluster_config:
   name: "production-cluster"
@@ -7,10 +7,10 @@ cluster_config:
     environment: production
 
 features:
-  # Strict admission control in production
+  # AC: 정책 위반 시 차단 (Fail)
   admission_control:
     enabled: true
-    failure_policy: Fail  # Block on policy violations
+    failure_policy: Fail
     dry_run: false
     container_vulnerability_management:
       enabled: true
@@ -19,25 +19,9 @@ features:
     supply_chain:
       enabled: true
       image_signature:
-        enabled: false  # Enable if using signed images
+        enabled: false
 
-  # Full posture scanning
-  posture:
-    cluster_posture:
-      enabled: true
-    host_posture:
-      enabled: true
-
-  # Comprehensive vulnerability management
-  vulnerability_management:
-    container_vulnerability_management:
-      enabled: true
-    host_vulnerability_management:
-      enabled: true
-    in_use:
-      enabled: true
-
-  # All detection features
+  # 모든 보안 기능 활성화
   detections:
     drift_control:
       enabled: true
@@ -47,24 +31,55 @@ features:
       enabled: true
     kubernetes_audit:
       enabled: true
-      timeout: 10
     file_integrity_monitoring:
       enabled: true
 
-  # Investigation features
   investigations:
     activity_audit:
       enabled: true
     live_logs:
-      enabled: true  # Enable live log streaming for troubleshooting
-    network_security:
       enabled: true
     captures:
       enabled: true
+    network_security:
+      enabled: true
 
-  # Respond features
   respond:
     rapid_response:
-      enabled: true  # Enable rapid response for incident handling
+      enabled: true
     response_actions:
-      enabled: true  # Enable automated response actions
+      enabled: true
+
+# 운영 환경 리소스 확대
+host:
+  resources:
+    shield:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1500m"
+    kmodule:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1500m"
+
+# 고가용성 설정
+cluster:
+  replica_count: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
+  pod_disruption_budget:
+    create: true
+    min_available: 1
+  additional_settings:
+    log_level: warning
