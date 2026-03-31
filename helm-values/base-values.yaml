@@ -19,11 +19,16 @@ cluster_config:
 sysdig_endpoint:
   # 온프레미스 환경은 custom 사용 (SaaS: us1, us2, eu1, au1, me2)
   region: custom
-  access_key: <SYSDIG_ACCESS_KEY>
-  secure_api_token: <SYSDIG_API_TOKEN>
-  api_url: https://<DOMAIN_WHAT_YOU_SET>
+  # Secret은 Git에 커밋하지 않음 — Kubernetes Secret으로 관리
+  # kubectl create secret generic sysdig-agent \
+  #   --from-literal=access-key=<KEY> -n sysdig-shield
+  access_key_existing_secret: sysdig-agent
+  # kubectl create secret generic sysdig-api-token \
+  #   --from-literal=secure-api-token=<TOKEN> -n sysdig-shield
+  secure_api_token_existing_secret: sysdig-api-token
+  api_url: https://sysdig-kakao.cshift.co/
   collector:
-    host: <DOMAIN_WHAT_YOU_SET>
+    host: sysdig-kakao.cshift.co
     port: 6443
 
 # ============================================================

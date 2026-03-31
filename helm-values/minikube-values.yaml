@@ -1,0 +1,84 @@
+# minikube 테스트 환경 Helm values
+# base-values.yaml을 상속하며, 최소 리소스로 Agent만 배포합니다.
+
+cluster_config:
+  name: "minikube-test"
+  tags:
+    environment: minikube-test
+
+features:
+  admission_control:
+    enabled: false
+  posture:
+    host_posture:
+      enabled: false
+    cluster_posture:
+      enabled: false
+  vulnerability_management:
+    host_vulnerability_management:
+      enabled: false
+    container_vulnerability_management:
+      enabled: false
+    in_use:
+      enabled: false
+  detections:
+    drift_control:
+      enabled: false
+    malware_control:
+      enabled: false
+    ml_policies:
+      enabled: false
+    kubernetes_audit:
+      enabled: false
+  investigations:
+    activity_audit:
+      enabled: false
+    live_logs:
+      enabled: false
+    network_security:
+      enabled: false
+    captures:
+      enabled: false
+  respond:
+    response_actions:
+      enabled: false
+    rapid_response:
+      enabled: false
+  monitor:
+    app_checks:
+      enabled: false
+    java_management_extensions:
+      enabled: false
+    statsd:
+      enabled: false
+
+host:
+  resources:
+    shield:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    kmodule:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+cluster:
+  replica_count: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  pod_disruption_budget:
+    create: false
+  additional_settings:
+    log_level: debug
