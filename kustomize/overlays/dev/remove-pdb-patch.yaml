@@ -1,7 +1,0 @@
-# Remove PodDisruptionBudget for dev environment (single node clusters)
-$patch: delete
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: sysdig-admission-controller
-  namespace: sysdig-shield

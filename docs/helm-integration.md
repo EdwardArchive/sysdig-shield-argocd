@@ -1,10 +1,10 @@
 # Helm 차트 통합 가이드
 
-Kustomize 기반 배포의 대안으로 공식 Sysdig Helm 차트를 사용하는 방법을 설명합니다.
+이 저장소의 주요 배포 방식인 공식 Sysdig Helm 차트의 설정 상세를 설명합니다.
 
 ## 개요
 
-이 저장소는 Kustomize를 주요 배포 방식으로 사용하지만, 공식 Sysdig Helm 차트와 환경별 values 파일을 활용한 배포도 지원합니다.
+이 저장소는 공식 Sysdig Helm 차트(`sysdig/shield`)를 ArgoCD Multi-Source Application으로 배포합니다. `helm-values/` 디렉토리의 values 파일이 유일한 설정 소스입니다.
 
 ## Helm 차트 정보
 
@@ -102,22 +102,15 @@ sysdig_endpoint:
 
 > **출처**: [Sysdig Shield Helm Chart 문서](https://docs.sysdig.com/en/docs/installation/sysdig-secure/install-agent-components/kubernetes/#install-using-helm)
 
-## 하이브리드 방식: Helm + Kustomize
+## 차트 버전 업그레이드
 
-Helm 템플릿과 Kustomize 패치를 결합할 수 있습니다:
+차트 버전을 업그레이드하려면 `argocd-apps/` 내 각 Application의 `targetRevision`을 변경합니다:
 
-```bash
-# Helm 차트를 YAML로 렌더링 후 Kustomize 적용
-helm template sysdig-shield sysdig/shield \
-  --version 1.28.0 \
-  --values helm-values/base-values.yaml \
-  --namespace sysdig-shield | kubectl kustomize kustomize/overlays/production/
+```yaml
+sources:
+- repoURL: https://charts.sysdig.com
+  chart: shield
+  targetRevision: "1.29.0"    # ← 새 버전으로 변경
 ```
 
-## 비교: Helm vs Kustomize
-
-| 항목 | Helm | Kustomize |
-|------|------|-----------|
-| **장점** | 공식 차트 업데이트, 간편한 업그레이드 | 세밀한 제어, 커스텀 패치 |
-| **적합** | 표준 배포, 빠른 시작 | 고급 설정, 환경별 세밀 조정 |
-| **조합** | 하이브리드 방식으로 양쪽 장점 활용 가능 | |
+변경 후 Git에 커밋하면 ArgoCD가 자동(dev/staging) 또는 수동(production) 동기화합니다.

@@ -42,41 +42,16 @@
 
 ```
 sysdig-shield-argocd/
-├── argocd-apps/                          # ArgoCD Application 매니페스트
-│   ├── sysdig-shield-base.yaml           #   베이스 (수동 동기화)
+├── argocd-apps/                          # ArgoCD Application (Helm Multi-Source)
 │   ├── sysdig-shield-dev.yaml            #   개발 환경 (자동 동기화)
 │   ├── sysdig-shield-staging.yaml        #   스테이징 환경 (자동 동기화)
 │   └── sysdig-shield-production.yaml     #   운영 환경 (수동 동기화 + Lua 헬스체크)
 │
-├── helm-values/                          # Helm 차트 values 파일
-│   ├── base-values.yaml                  #   기본 설정 (sysdig/shield v1.28.0)
+├── helm-values/                          # Helm values (sysdig/shield v1.28.0)
+│   ├── base-values.yaml                  #   기본 설정 (모든 환경 공통)
 │   ├── dev-values.yaml                   #   개발 환경 오버라이드
 │   ├── staging-values.yaml               #   스테이징 환경 오버라이드
 │   └── production-values.yaml            #   운영 환경 오버라이드
-│
-├── kustomize/                            # Kustomize 기반 배포 (주요 배포 방식)
-│   ├── base/                             #   기본 리소스 정의
-│   │   ├── kustomization.yaml            #     Sync Wave별 리소스 정렬
-│   │   ├── 00-namespace.yaml             #     네임스페이스 (Wave 0)
-│   │   ├── rbac/                         #     RBAC 리소스 12개 (Wave 1)
-│   │   ├── sysdig-agent/                 #     Agent ConfigMap + DaemonSet
-│   │   ├── admission-controller/         #     AC 관련 리소스 5개
-│   │   ├── node-analyzer/                #     Node Analyzer ConfigMap + DaemonSet
-│   │   ├── kspm-collector/               #     KSPM Collector ConfigMap + Deployment
-│   │   └── network-policies/             #     네트워크 정책 7개
-│   └── overlays/
-│       ├── dev/                          #   개발: 리소스 축소, PDB 제거, AC 1 replica
-│       ├── staging/                      #   스테이징: 중간 리소스, AC 2 replicas
-│       └── production/                   #   운영: 고성능, HPA, PDB, AC 3+ replicas
-│
-├── manifests/                            # Raw Kubernetes 매니페스트 (레거시/참조용)
-│   ├── 00-namespace.yaml
-│   ├── rbac/                             #   RBAC 리소스 12개
-│   ├── sysdig-agent/                     #   Agent ConfigMap + DaemonSet
-│   ├── admission-controller/             #   AC 리소스 6개 (HPA 포함)
-│   ├── node-analyzer/                    #   Node Analyzer 리소스 2개
-│   ├── kspm-collector/                   #   KSPM Collector 리소스 2개
-│   └── network-policies/                 #   네트워크 정책 7개
 │
 ├── secrets/                              # 시크릿 관리 템플릿
 │   ├── README.md                         #   시크릿 관리 가이드
@@ -89,29 +64,23 @@ sysdig-shield-argocd/
 │   ├── connectivity-test.yaml            #   Sysdig 백엔드 연결 테스트 Job
 │   ├── sample-deployment.yaml            #   정상 배포 테스트 (nginx)
 │   ├── policy-violation.yaml             #   정책 위반 테스트 (AC 차단 확인)
-│   ├── rollback-test.md                  #   롤백 절차 문서
+│   ├── rollback-test.md                  #   롤백 검증 절차
 │   ├── validate-rbac.sh                  #   RBAC 검증 스크립트
 │   └── validate-network-policies.sh      #   네트워크 정책 검증 스크립트
 │
 ├── docs/                                 # 운영 문서
-│   ├── installation.md                   #   설치 가이드
-│   ├── configuration.md                  #   설정 참조
-│   ├── helm-integration.md               #   Helm 차트 통합 가이드
-│   ├── testing.md                        #   테스트 절차
-│   ├── security.md                       #   보안 강화 체크리스트
+│   ├── deployment-guide-kr.md            #   종합 한국어 배포 가이드
+│   ├── installation.md                   #   설치 및 설정 가이드
+│   ├── helm-integration.md               #   Helm 차트 설정 상세
+│   ├── testing.md                        #   테스트 및 검증 절차
 │   ├── monitoring.md                     #   모니터링 (Prometheus/Grafana)
-│   ├── troubleshooting.md                #   문제 해결
-│   ├── upgrade.md                        #   업그레이드 절차
-│   ├── maintenance.md                    #   유지보수 및 DR
-│   └── incident-response.md              #   인시던트 대응
+│   ├── maintenance.md                    #   유지보수, 업그레이드, DR
+│   ├── security.md                       #   보안 강화 및 인시던트 대응
+│   └── troubleshooting.md                #   문제 해결
 │
-├── openspec/                             # 설계 명세 문서
-│   ├── specs/                            #   컴포넌트별 스펙 10개
-│   └── changes/archive/                  #   변경 이력 아카이브
-│
-├── README.md                             # 프로젝트 개요
-├── CLAUDE.md                             # Claude Code 작업 가이드
-└── LICENSE                               # MIT 라이선스
+├── README.md
+├── CLAUDE.md
+└── LICENSE
 ```
 
 ### 1.2 핵심 컴포넌트
@@ -126,7 +95,7 @@ sysdig-shield-argocd/
   - `/host/proc`, `/host/dev`, `/host/boot` 등 호스트 파일시스템 마운트
   - collector.sysdigcloud.com:6443 으로 데이터 전송
 - **리소스 기본값**: CPU 500m~1000m, Memory 512Mi~1Gi
-- **파일**: `kustomize/base/sysdig-agent/daemonset.yaml`, `configmap.yaml`
+- **설정**: `helm-values/base-values.yaml`의 `features.detections` 등에서 기능 토글
 
 #### Admission Controller (Deployment)
 - **역할**: 배포 시점에 보안 정책을 검증하고 위반 시 차단
@@ -137,7 +106,7 @@ sysdig-shield-argocd/
   - `failurePolicy`: dev/staging은 `Ignore`, production은 `Fail`
   - 이미지 취약점 스캔 및 정책 위반 감지
   - 컨테이너 수준 보안 컨텍스트 강제
-- **파일**: `kustomize/base/admission-controller/` 디렉토리 내 5개 파일
+- **설정**: `helm-values/`의 `features.admission_control` 섹션
 
 #### Node Analyzer (DaemonSet)
 - **역할**: 노드 레벨 이미지 스캔 및 취약점 분석
@@ -146,7 +115,7 @@ sysdig-shield-argocd/
   - 호스트의 컨테이너 이미지를 로컬에서 스캔
   - 호스트 취약점 관리 (Host Vulnerability Management)
   - 리소스 사용량은 Agent보다 적음
-- **파일**: `kustomize/base/node-analyzer/configmap.yaml`, `daemonset.yaml`
+- **설정**: `helm-values/`의 `features.vulnerability_management` 섹션
 
 #### KSPM Collector (Deployment)
 - **역할**: Kubernetes 보안 태세 관리 (Security Posture Management)
@@ -155,18 +124,16 @@ sysdig-shield-argocd/
   - 클러스터 구성 및 규정 준수 데이터 수집
   - CIS Benchmarks, 보안 모범 사례 검증
   - 클러스터 및 호스트 수준 포스처 분석
-- **파일**: `kustomize/base/kspm-collector/configmap.yaml`, `deployment.yaml`
+- **설정**: `helm-values/`의 `features.posture` 섹션
 
-### 1.3 배포 방식 비교
+### 1.3 배포 방식
 
-이 저장소는 4가지 배포 방식을 지원합니다:
+이 저장소는 **ArgoCD Multi-Source + Helm** 단일 방식으로 배포합니다:
 
-| 방식 | 디렉토리 | 특징 | 권장 대상 |
-|------|----------|------|-----------|
-| **ArgoCD + Kustomize** | `argocd-apps/` + `kustomize/` | GitOps, 환경별 오버레이, Sync Wave | 운영 환경 (권장) |
-| **Helm** | `helm-values/` | sysdig/shield 공식 차트, 기능 토글 | Helm 기반 팀 |
-| **Kustomize Only** | `kustomize/` | `kubectl apply -k` 직접 적용 | ArgoCD 없는 환경 |
-| **Raw Manifests** | `manifests/` | 단순 `kubectl apply` | 참조/테스트용 |
+- **Source 1**: `charts.sysdig.com`에서 공식 `sysdig/shield` Helm 차트
+- **Source 2**: 이 Git 저장소에서 `helm-values/` values 파일
+
+> **출처**: [ArgoCD Multi-Source Applications](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)
 
 **ArgoCD Application 구조** (`argocd-apps/sysdig-shield-dev.yaml` 예시):
 
@@ -182,45 +149,38 @@ metadata:
     notifications.argoproj.io/subscribe.on-health-degraded.slack: sysdig-alerts
 spec:
   project: default
-  source:
-    repoURL: https://github.com/yourusername/sysdig-shield-argocd.git
+  sources:
+  - repoURL: https://charts.sysdig.com     # 공식 Helm 차트
+    chart: shield
+    targetRevision: "1.28.0"
+    helm:
+      valueFiles:
+      - $values/helm-values/base-values.yaml
+      - $values/helm-values/dev-values.yaml
+  - repoURL: <YOUR_REPO_URL>               # Values 파일 소스
     targetRevision: HEAD
-    path: kustomize/overlays/dev    # 각 환경별 오버레이 경로 지정
+    ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: sysdig-shield
   syncPolicy:
-    automated:                       # 개발/스테이징: 자동 동기화
+    automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
     - ApplyOutOfSyncOnly=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 3m
-  ignoreDifferences:
-  - group: admissionregistration.k8s.io
-    kind: ValidatingWebhookConfiguration
-    jsonPointers:
-    - /webhooks/0/clientConfig/caBundle
 ```
 
-### 1.4 Sync Wave 순서
+### 1.4 리소스 배포 순서
 
-ArgoCD Sync Wave를 통해 리소스가 의존성 순서대로 배포됩니다 (`kustomize/base/kustomization.yaml` 기준):
+Helm 차트가 Kubernetes 리소스를 올바른 순서로 자동 배포합니다:
 
-| Wave | 리소스 | 설명 |
-|------|--------|------|
-| **0** | Namespace (`sysdig-shield`) | 모든 리소스의 기반 네임스페이스 |
-| **1** | RBAC (12개 리소스) | ServiceAccount, ClusterRole, ClusterRoleBinding × 4 컴포넌트 |
-| **2** | ConfigMap (4개) + NetworkPolicy (7개) | Agent/AC/NA/KSPM 설정 + 네트워크 격리 |
-| **3** | DaemonSet (2개) | Sysdig Agent + Node Analyzer |
-| **4** | Deployment + Service + PDB | Admission Controller + KSPM Collector |
-| **5** | ValidatingWebhookConfiguration | AC가 준비된 후 웹훅 등록 |
+1. Namespace, RBAC (ServiceAccount, ClusterRole, ClusterRoleBinding)
+2. ConfigMap, Secret
+3. DaemonSet (Agent, Node Analyzer)
+4. Deployment, Service, PDB (Admission Controller, KSPM Collector)
+5. ValidatingWebhookConfiguration, HPA
 
 ---
 
@@ -273,7 +233,7 @@ ArgoCD Sync Wave를 통해 리소스가 의존성 순서대로 배포됩니다 (
 #### RBAC
 4개 컴포넌트 각각에 대해 ServiceAccount + ClusterRole + ClusterRoleBinding = 총 12개 RBAC 리소스.
 
-Agent ClusterRole 주요 권한 (`manifests/rbac/sysdig-agent-clusterrole.yaml`):
+Agent ClusterRole 주요 권한 (Helm 차트가 생성):
 - `""` (core): pods, nodes, namespaces, services, endpoints, replicationcontrollers, persistentvolumes 등 — get/list/watch
 - `""` (events): get/list/watch/**create**
 - `apps`: deployments, daemonsets, replicasets, statefulsets — get/list/watch
@@ -296,7 +256,7 @@ Agent ClusterRole 주요 권한 (`manifests/rbac/sysdig-agent-clusterrole.yaml`)
 
 ### 2.3 환경별 차이점 비교표
 
-Helm values (`helm-values/`) 및 Kustomize overlays (`kustomize/overlays/`) 기준:
+Helm values (`helm-values/`) 기준:
 
 | 항목 | Dev | Staging | Production |
 |------|-----|---------|------------|
@@ -325,107 +285,147 @@ Helm values (`helm-values/`) 및 Kustomize overlays (`kustomize/overlays/`) 기�
 
 ## 3. 오류 및 개선사항 분석
 
-### 3.1 플레이스홀더 GitHub URL (Critical)
+### 3.1 플레이스홀더 repoURL (설정 필요)
 
-**위치**: `argocd-apps/` 내 모든 4개 파일
-**내용**: `repoURL` 값이 `https://github.com/yourusername/sysdig-shield-argocd.git`으로 설정됨
-**영향**: ArgoCD Application을 그대로 적용하면 리포지토리를 찾을 수 없어 동기화 실패
-**해결**: 실제 Git 리포지토리 URL로 교체 필요
+**위치**: `argocd-apps/` 내 3개 파일
+**내용**: values 소스의 `repoURL` 값이 `<YOUR_REPO_URL>`로 설정됨
+**조치**: 배포 전 실제 Git 저장소 URL로 교체 필요
 
-### 3.2 manifests/ vs kustomize/base/ 불일치 (High)
-
-**Admission Controller ConfigMap 차이**:
-- `manifests/admission-controller/configmap.yaml`에는 `auditLog` 섹션이 포함되어 있으나, `kustomize/base/admission-controller/configmap.yaml`에는 누락됨
-- 누락된 설정:
-  ```yaml
-  auditLog:
-    enabled: true
-    path: /var/log/sysdig/admission-controller-audit.log
-    maxSizeMB: 100
-    maxBackups: 5
-    includeRequestObject: true
-    includeResponseObject: false
-  ```
-
-**HPA 파라미터 불일치**:
-- `manifests/admission-controller/hpa.yaml`: minReplicas=2, maxReplicas=6
-- `kustomize/overlays/production/hpa.yaml`: minReplicas=3, maxReplicas=8
-- 서로 다른 스케일링 정책을 나타내며 어느 것이 정확한지 불명확
-
-### 3.3 Base ConfigMap 하드코딩 (Medium)
-
-**위치**: `kustomize/base/sysdig-agent/configmap.yaml` 27~30행
-**내용**: `tags` 필드에 `env:production`이 하드코딩됨
-**영향**: dev/staging 오버레이에서 별도 패치로 오버라이드하고 있으나, 베이스가 환경 중립적이어야 함
-**해결**: 베이스의 태그를 `env:base` 또는 환경 변수 참조로 변경 권장
-
-### 3.4 문서 참조 오류 (Low)
-
-**위치**: `docs/installation.md` 등에서 `secrets-management.md` 파일 참조
-**실제**: 해당 파일은 존재하지 않으며, 시크릿 관리 문서는 `secrets/README.md`에 위치
-**해결**: 문서 내 링크를 `../secrets/README.md`로 수정
-
-### 3.5 인시던트 대응 문서 플레이스홀더 (Low)
-
-**위치**: `docs/incident-response.md` 3~4행
-**내용**: Platform Team, Security Team 연락처가 `[contact-info]` 플레이스홀더로 남아있음
-**해결**: 실제 담당팀 연락처로 교체 필요
-
-### 3.6 Helm Values 리소스 미지정 (Medium)
+### 3.2 Helm Values 리소스 미지정 (Medium)
 
 **위치**: `helm-values/` 내 모든 values 파일
-**내용**: CPU/Memory 리소스 requests/limits가 Helm values에 지정되어 있지 않음
-**영향**: Helm 단독 배포 시 리소스 제한 없이 실행될 위험 (Kustomize 배포 시에는 오버레이 패치로 적용됨)
-**해결**: Helm values에도 환경별 리소스 제한 추가 권장
+**내용**: CPU/Memory 리소스 requests/limits가 명시되지 않음
+**영향**: Helm 차트의 기본값이 적용되나, 환경별 최적화가 안 됨
+**해결**: Helm values에 환경별 리소스 제한 추가 권장
 
-### 3.7 ML Policies 환경 간 불일치 (Low)
+### 3.3 ML Policies 환경 간 불일치 (Low)
 
 **내용**:
 - `base-values.yaml`: `ml_policies.enabled: false`
 - `staging-values.yaml`: ml_policies 오버라이드 없음 → false 상속
 - `production-values.yaml`: `ml_policies.enabled: true`
 - Staging에서 ML Policies 테스트 없이 바로 Production에서 활성화하는 구조
-**해결**: Staging에서도 ML Policies를 활성화하여 사전 검증하거나, 의도적인 결정이라면 문서화 필요
+**해결**: Staging에서도 ML Policies를 활성화하여 사전 검증 권장
 
-### 3.8 manifests/ 디렉토리 동기화 문제 (Medium)
+### 3.4 보안 문서 연락처 플레이스홀더 (Low)
 
-**내용**: `manifests/` 디렉토리가 `kustomize/base/`와 동기화되지 않은 상태
-- ArgoCD Application은 모두 `kustomize/overlays/` 경로를 참조하고 있어 `manifests/`는 실제 배포에 사용되지 않음
-- HPA가 `manifests/`에만 존재하고 kustomize base에는 없음 (production overlay에서만 추가)
-- ConfigMap, 태그, 로그 레벨 등에서 차이가 있음
-**해결**: manifests/ 디렉토리를 제거하거나 "참조용(Reference Only)" 명시 필요
+**위치**: `docs/security.md` 인시던트 대응 섹션
+**내용**: Platform Team, Security Team 연락처가 플레이스홀더로 남아있음
+**해결**: 실제 담당팀 연락처로 교체 필요
+
+> **참고**: 이전 버전에 존재했던 `manifests/`와 `kustomize/` 디렉토리 간 불일치, ConfigMap 하드코딩, 문서 참조 오류 등의 이슈는 Helm 기반 전환 시 모두 해소되었습니다.
 
 ---
 
 ## 4. 최소 ArgoCD Agent 배포 가이드
 
-전체 Sysdig Shield를 배포하지 않고 **Agent만** 최소한으로 배포하는 방법입니다.
+전체 Sysdig Shield를 배포하지 않고 **Agent만** 최소한으로 배포하는 방법입니다. Helm 차트를 사용하는 방식과 Raw 매니페스트를 직접 사용하는 방식 두 가지를 설명합니다.
 
 ### 4.1 사전 요구사항
 
 - Kubernetes 클러스터 v1.24 이상 (RBAC 활성화)
-- ArgoCD v2.8 이상 설치 및 접근 가능
-- `kubectl`, `argocd` CLI 설정 완료
+- ArgoCD v2.8 이상 (Multi-Source 지원) 또는 Helm CLI
 - Sysdig 계정 및 Access Key 보유
 
-### 4.2 최소 디렉토리 구조
+### 4.2 방법 A: Helm 차트로 최소 배포 (권장)
 
-```
-sysdig-agent-minimal/
-├── 00-namespace.yaml
-├── rbac/
-│   ├── serviceaccount.yaml
-│   ├── clusterrole.yaml
-│   └── clusterrolebinding.yaml
-├── configmap.yaml
-├── daemonset.yaml
-└── kustomization.yaml         # (선택) Kustomize 사용 시
+Helm values에서 Agent만 활성화하고 나머지 컴포넌트를 비활성화합니다.
+
+**최소 values 파일** (`agent-only-values.yaml`):
+
+```yaml
+cluster_config:
+  name: "my-cluster"
+
+sysdig_endpoint:
+  region: us1
+  access_key_existing_secret: sysdig-agent
+
+features:
+  admission_control:
+    enabled: false
+  posture:
+    cluster_posture:
+      enabled: false
+    host_posture:
+      enabled: false
+  vulnerability_management:
+    container_vulnerability_management:
+      enabled: false
+    host_vulnerability_management:
+      enabled: false
+  detections:
+    drift_control:
+      enabled: false
+    malware_control:
+      enabled: false
+    kubernetes_audit:
+      enabled: false
+  investigations:
+    activity_audit:
+      enabled: false
+    network_security:
+      enabled: false
+  respond:
+    rapid_response:
+      enabled: false
 ```
 
-필요한 리소스는 **5개**입니다:
+**배포 커맨드**:
+
+```bash
+# 1. 시크릿 생성
+kubectl create namespace sysdig-shield
+kubectl create secret generic sysdig-agent \
+  --from-literal=access-key=<YOUR_SYSDIG_ACCESS_KEY> \
+  -n sysdig-shield
+
+# 2. Helm으로 Agent만 배포
+helm repo add sysdig https://charts.sysdig.com
+helm install sysdig-agent sysdig/shield \
+  --namespace sysdig-shield \
+  --version 1.28.0 \
+  -f agent-only-values.yaml
+```
+
+**ArgoCD Application으로 배포** (Git에 values 파일을 커밋한 경우):
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sysdig-agent-minimal
+  namespace: argocd
+spec:
+  project: default
+  sources:
+  - repoURL: https://charts.sysdig.com
+    chart: shield
+    targetRevision: "1.28.0"
+    helm:
+      valueFiles:
+      - $values/helm-values/agent-only-values.yaml
+  - repoURL: <YOUR_REPO_URL>
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sysdig-shield
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+```
+
+### 4.3 방법 B: Raw 매니페스트로 최소 배포
+
+Helm 없이 직접 Kubernetes 리소스를 생성하는 방법입니다. 필요한 리소스는 **5개**입니다:
+
 1. Namespace
 2. RBAC (ServiceAccount + ClusterRole + ClusterRoleBinding)
-3. Secret (Access Key — 별도 생성)
+3. Secret (Access Key)
 4. ConfigMap (Agent 설정)
 5. DaemonSet (Agent 파드)
 
@@ -796,13 +796,19 @@ kubectl exec -it daemonset/sysdig-agent -n sysdig-shield -- ls /opt/draios/logs/
 #### 매니페스트 dry-run 검증
 
 ```bash
-# Kubernetes API 서버를 통한 dry-run
-kubectl apply -f manifests/ --dry-run=server --recursive
+# Helm 템플릿 렌더링 검증
+helm template sysdig-shield sysdig/shield \
+  --version 1.28.0 \
+  -f helm-values/base-values.yaml \
+  -f helm-values/dev-values.yaml \
+  --namespace sysdig-shield
 
-# Kustomize 빌드 확인
-kubectl kustomize kustomize/overlays/dev/
-kubectl kustomize kustomize/overlays/staging/
-kubectl kustomize kustomize/overlays/production/
+# Kubernetes API 서버를 통한 dry-run
+helm template sysdig-shield sysdig/shield \
+  --version 1.28.0 \
+  -f helm-values/base-values.yaml \
+  -f helm-values/production-values.yaml \
+  --namespace sysdig-shield | kubectl apply --dry-run=server -f -
 ```
 
 #### Helm template 검증
@@ -984,14 +990,9 @@ bash test/validate-network-policies.sh
 | ArgoCD App (Staging) | `argocd-apps/sysdig-shield-staging.yaml` |
 | ArgoCD App (Production) | `argocd-apps/sysdig-shield-production.yaml` |
 | Helm Base Values | `helm-values/base-values.yaml` |
-| Kustomize Base | `kustomize/base/kustomization.yaml` |
-| Kustomize Dev Overlay | `kustomize/overlays/dev/kustomization.yaml` |
-| Agent DaemonSet | `kustomize/base/sysdig-agent/daemonset.yaml` |
-| Agent ConfigMap | `kustomize/base/sysdig-agent/configmap.yaml` |
-| AC Deployment | `kustomize/base/admission-controller/deployment.yaml` |
-| AC Webhook | `kustomize/base/admission-controller/validatingwebhookconfiguration.yaml` |
-| Network Policies | `kustomize/base/network-policies/` |
-| RBAC 리소스 | `kustomize/base/rbac/` |
+| Helm Dev Values | `helm-values/dev-values.yaml` |
+| Helm Staging Values | `helm-values/staging-values.yaml` |
+| Helm Production Values | `helm-values/production-values.yaml` |
 | 시크릿 관리 가이드 | `secrets/README.md` |
 | External Secrets 예제 | `secrets/external-secrets/` |
 | 연결 테스트 | `test/connectivity-test.yaml` |
@@ -1000,6 +1001,7 @@ bash test/validate-network-policies.sh
 | 네트워크 정책 검증 | `test/validate-network-policies.sh` |
 | 롤백 절차 | `test/rollback-test.md` |
 | 설치 가이드 | `docs/installation.md` |
+| Helm 설정 상세 | `docs/helm-integration.md` |
 | 트러블슈팅 | `docs/troubleshooting.md` |
 | 모니터링 | `docs/monitoring.md` |
 
@@ -1060,5 +1062,5 @@ kubectl get events -n sysdig-shield --sort-by='.lastTimestamp'
 kubectl describe nodes | grep -A5 "Allocated resources"
 
 # 3. 리소스 requests 축소 (dev overlay 참조)
-# kustomize/overlays/dev/sysdig-agent-resources-patch.yaml 참고
+# helm-values/dev-values.yaml 참고하여 리소스 제한 조정
 ```

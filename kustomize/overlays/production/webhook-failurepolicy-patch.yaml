@@ -1,9 +1,0 @@
-# Change webhook failure policy to Fail in production (after validation)
-# NOTE: Only apply this after testing in dev/staging
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: sysdig-admission-controller
-webhooks:
-- name: scanning.admission.sysdig.com
-  failurePolicy: Fail

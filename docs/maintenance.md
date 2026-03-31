@@ -14,30 +14,33 @@
 
 ## 업그레이드 절차
 
-### 1. 매니페스트 업데이트
+### 1. Helm 차트 버전 업데이트
 
-```bash
-# 이미지 태그 또는 설정 업데이트 후 커밋
-git commit -am "Sysdig 컴포넌트를 vX.Y.Z로 업데이트"
-git push
+`argocd-apps/` 내 각 Application의 `targetRevision`을 새 차트 버전으로 변경합니다:
+
+```yaml
+sources:
+- repoURL: https://charts.sysdig.com
+  chart: shield
+  targetRevision: "1.29.0"    # ← 새 버전
 ```
 
-### 2. 변경 사항 동기화
+### 2. 변경 사항 커밋 및 동기화
 
 ```bash
-# 개발 환경 (자동 동기화 — 자동 적용됨)
-# 수동으로 확인하려면:
-argocd app sync sysdig-shield-dev
+git commit -am "Sysdig Shield 차트를 v1.29.0으로 업그레이드"
+git push
 
-# 운영 환경 (수동 동기화)
+# 개발/스테이징: 자동 동기화됨
+# 운영: 수동 동기화
 argocd app sync sysdig-shield-production
 ```
 
 ### 3. 업그레이드 확인
 
 ```bash
-kubectl rollout status daemonset/sysdig-agent -n sysdig-shield
-kubectl rollout status deployment/sysdig-admission-controller -n sysdig-shield
+argocd app get sysdig-shield-production
+kubectl get pods -n sysdig-shield
 ```
 
 ### 롤백

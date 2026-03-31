@@ -17,15 +17,16 @@ This file provides guidance to Claude Code when working with this Sysdig Shield 
 
 ## Repository Overview
 
-This repository contains ArgoCD Application manifests and Kubernetes configurations for deploying Sysdig Shield components. Sysdig Shield provides runtime security, compliance, and threat detection for Kubernetes clusters.
+This repository contains ArgoCD Application manifests and Helm values for deploying Sysdig Shield components using the official `sysdig/shield` Helm chart. ArgoCD Multi-Source Applications are used to combine the chart from `charts.sysdig.com` with values files from this repository.
 
 ## Project Structure
 
-The repository follows GitOps principles with ArgoCD for continuous deployment:
-- **argocd-apps/**: ArgoCD Application manifests
-- **manifests/**: Kubernetes manifests for Sysdig Shield components
-- **helm-values/**: Helm values files for Sysdig deployments
-- **kustomize/**: Kustomization overlays for different environments
+The repository follows GitOps principles with ArgoCD + Helm for continuous deployment:
+- **argocd-apps/**: ArgoCD Application manifests (Helm Multi-Source)
+- **helm-values/**: Helm values files for environment-specific configuration (base + dev/staging/production)
+- **secrets/**: Secret management templates (External Secrets, Sealed Secrets, Vault Plugin)
+- **test/**: Test manifests and validation scripts
+- **docs/**: Operational documentation (Korean)
 
 ## Common Commands
 
@@ -49,9 +50,6 @@ argocd app delete sysdig-shield
 
 ### Kubernetes Commands
 ```bash
-# Apply manifests directly (for testing)
-kubectl apply -f manifests/
-
 # Check Sysdig Shield components
 kubectl get pods -n sysdig-shield
 kubectl get svc -n sysdig-shield
@@ -104,19 +102,13 @@ Required secrets:
 - `sysdig-admission-controller-secret`: TLS certificates for webhook
 
 ### Environment-Specific Configuration
-Use Kustomize overlays for environment-specific configurations:
+Use Helm values files for environment-specific configurations:
 ```
-kustomize/
-├── base/
-│   ├── kustomization.yaml
-│   └── sysdig-agent.yaml
-├── overlays/
-│   ├── dev/
-│   │   └── kustomization.yaml
-│   ├── staging/
-│   │   └── kustomization.yaml
-│   └── production/
-│       └── kustomization.yaml
+helm-values/
+├── base-values.yaml          # Common settings for all environments
+├── dev-values.yaml            # Dev overrides (dryRun, reduced features)
+├── staging-values.yaml        # Staging overrides (full features, Ignore policy)
+└── production-values.yaml     # Production overrides (Fail policy, ML policies)
 ```
 
 ## Security Considerations
@@ -145,11 +137,12 @@ Configure network policies to:
 # Validate ArgoCD application manifests
 argocd app create -f argocd-apps/sysdig-shield.yaml --validate
 
-# Dry-run Kubernetes manifests
-kubectl apply -f manifests/ --dry-run=server
-
 # Validate Helm values
-helm template sysdig/sysdig-deploy -f helm-values/values.yaml --debug
+helm template sysdig-shield sysdig/shield \
+  --version 1.28.0 \
+  -f helm-values/base-values.yaml \
+  -f helm-values/dev-values.yaml \
+  --debug
 ```
 
 ### Post-Deployment Verification

@@ -1,7 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: sysdig-admission-controller
-  namespace: sysdig-shield
-spec:
-  replicas: 3

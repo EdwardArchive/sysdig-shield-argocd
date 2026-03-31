@@ -68,7 +68,7 @@ kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -v ht
 ```
 
 **해결 방법**:
-- 네트워크 정책 검토 (`kustomize/base/network-policies/`)
+- 네트워크 정책 검토 (Helm 차트가 생성한 NetworkPolicy 확인)
 - DNS Egress 허용 여부 확인 (`dns-egress.yaml`)
 - 방화벽 규칙 확인
 
@@ -105,6 +105,24 @@ kubectl top nodes
 ### 이미지 스캔 지연
 
 Node Analyzer ConfigMap에서 스캔 캐싱 및 속도 제한을 설정합니다.
+
+### Helm 릴리스 문제
+
+**증상**: ArgoCD에서 Helm 차트 동기화 실패
+
+**진단**:
+```bash
+# Helm 릴리스 상태 확인
+helm list -n sysdig-shield
+
+# ArgoCD 앱 상세 이벤트
+argocd app get sysdig-shield-production --show-events
+```
+
+**해결 방법**:
+- `helm-values/`의 values 파일 문법 오류 확인 (`helm template`으로 검증)
+- 차트 버전(`targetRevision`)이 유효한지 확인: `helm search repo sysdig/shield --versions`
+- ArgoCD가 `charts.sysdig.com` 저장소에 접근 가능한지 확인
 
 ## 지원
 

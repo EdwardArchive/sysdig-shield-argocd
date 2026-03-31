@@ -3,8 +3,7 @@
 ## 사전 요구사항
 
 - Kubernetes 클러스터 v1.24 이상, RBAC 활성화
-- ArgoCD v2.8 이상 설치 및 구성
-- kubectl로 클러스터 접근 가능
+- ArgoCD v2.8 이상 (Multi-Source Application 지원 필요)
 - Sysdig Secure 구독 및 Access Key 보유
 - (선택) External Secrets Operator, Sealed Secrets, 또는 Vault
 
@@ -17,7 +16,26 @@ git clone <YOUR_REPO_URL>
 cd sysdig-shield-argocd
 ```
 
-### 2. 시크릿 설정
+### 2. ArgoCD Application의 repoURL 설정
+
+`argocd-apps/` 내 각 파일에서 `<YOUR_REPO_URL>`을 실제 Git 저장소 URL로 교체합니다:
+
+```yaml
+# argocd-apps/sysdig-shield-dev.yaml 등
+sources:
+- repoURL: https://charts.sysdig.com    # Helm 차트 (변경 불필요)
+  chart: shield
+  targetRevision: "1.28.0"
+  helm:
+    valueFiles:
+    - $values/helm-values/base-values.yaml
+    - $values/helm-values/dev-values.yaml
+- repoURL: <YOUR_REPO_URL>              # ← 여기를 실제 URL로 교체
+  targetRevision: HEAD
+  ref: values
+```
+
+### 3. 시크릿 설정
 
 3가지 방식 중 선택합니다. 자세한 내용은 [`secrets/README.md`](../secrets/README.md)를 참조하세요.
 
@@ -35,96 +53,75 @@ kubectl create secret generic sysdig-agent \
   -n sysdig-shield
 ```
 
-### 3. 개발 환경 배포
+### 4. 개발 환경 배포
 
 ```bash
-# ArgoCD 애플리케이션 생성
 argocd app create -f argocd-apps/sysdig-shield-dev.yaml
-
-# 동기화 확인
 argocd app get sysdig-shield-dev
 argocd app wait sysdig-shield-dev --health
 ```
 
-### 4. 배포 확인
+### 5. 배포 확인
 
 ```bash
-# 파드 상태 확인
 kubectl get pods -n sysdig-shield
-
-# Agent 연결 확인
 kubectl logs daemonset/sysdig-agent -n sysdig-shield --tail=50 | grep -i "connected"
-
-# Admission Controller 확인
-kubectl run test-pod --image=nginx --dry-run=server
 ```
 
-### 5. 운영 환경 배포
+### 6. 운영 환경 배포
 
-개발/스테이징 검증 완료 후 진행합니다:
+개발/스테이징 검증 완료 후:
 
 ```bash
-# 운영 애플리케이션 생성 (수동 동기화)
 argocd app create -f argocd-apps/sysdig-shield-production.yaml
-
-# 수동 동기화
 argocd app sync sysdig-shield-production
 argocd app wait sysdig-shield-production --health
 ```
 
-## ArgoCD 없이 직접 배포 (테스트용)
+## Helm 차트 설정
 
-```bash
-kubectl apply -k kustomize/overlays/dev/
+### 환경별 values 구조
+
+```
+helm-values/
+├── base-values.yaml          # 모든 환경 공통 (차트: sysdig/shield v1.28.0)
+├── dev-values.yaml            # 개발: dryRun=true, 기능 축소
+├── staging-values.yaml        # 스테이징: 전체 기능 활성화
+└── production-values.yaml     # 운영: failurePolicy=Fail, ML 정책
 ```
 
-## 설정 참조
+ArgoCD가 `base-values.yaml` + `<env>-values.yaml`을 순서대로 적용합니다. 환경별 파일이 기본값을 오버라이드합니다.
 
-### 환경 변수
+상세 기능별 설정은 [`docs/helm-integration.md`](helm-integration.md)를 참조하세요.
 
-#### Sysdig Agent
-- `SYSDIG_AGENT_ACCESS_KEY`: Secret에서 가져오는 Access Key
-- `COLLECTOR`: 백엔드 URL (기본값: `collector.sysdigcloud.com`)
-- `COLLECTOR_PORT`: 백엔드 포트 (기본값: `6443`)
-- `SECURE`: 보안 연결 활성화 (기본값: `true`)
+### 리전별 백엔드
 
-#### 리전별 백엔드
+`helm-values/base-values.yaml`의 `sysdig_endpoint.region` 값을 변경합니다:
 
-| 리전 | Collector URL | API URL |
-|------|---------------|---------|
-| US1 (기본값) | `collector.sysdigcloud.com` | `app.us1.sysdig.com` |
-| US2 | `collector.us2.sysdig.com` | `app.us2.sysdig.com` |
-| EU1 | `collector.eu1.sysdig.com` | `app.eu1.sysdig.com` |
-| AU1 | `collector.au1.sysdig.com` | `app.au1.sysdig.com` |
-| ME2 | `collector.me2.sysdig.com` | `app.me2.sysdig.com` |
+| 리전 | 값 | Collector URL |
+|------|-----|---------------|
+| US1 (기본값) | `us1` | `collector.sysdigcloud.com` |
+| US2 | `us2` | `collector.us2.sysdig.com` |
+| EU1 | `eu1` | `collector.eu1.sysdig.com` |
+| AU1 | `au1` | `collector.au1.sysdig.com` |
+| ME2 | `me2` | `collector.me2.sysdig.com` |
 
 > **출처**: [Sysdig SaaS Regions](https://docs.sysdig.com/en/docs/administration/saas-regions-and-ip-ranges/)
 
-### ConfigMap 설정
+## Helm 없이 직접 배포 (테스트용)
 
-#### Agent 로그 레벨
-- **Dev**: `debug` — 상세 로깅
-- **Staging**: `info` — 표준 로깅
-- **Production**: `warning` — 최소 로깅
-
-#### Admission Controller 정책
-- `failurePolicy`: `Ignore` (dev/staging), `Fail` (production)
-- `bypassNamespaces`: kube-system, kube-public, sysdig-shield
-
-### 환경별 리소스 제한
-
-| 컴포넌트 | Dev | Staging | Production |
-|----------|-----|---------|------------|
-| Agent (CPU) | 100m~500m | 300m~750m | 500m~1000m |
-| Agent (Memory) | 256Mi~512Mi | 384Mi~768Mi | 512Mi~1Gi |
-| AC (CPU) | 100m~300m | 150m~400m | 200m~500m |
-| AC (Memory) | 128Mi~256Mi | 192Mi~384Mi | 256Mi~512Mi |
-
-상세 설정은 `kustomize/overlays/` 내 환경별 리소스 패치 파일을 참조하세요.
+```bash
+helm repo add sysdig https://charts.sysdig.com
+helm install sysdig-shield sysdig/shield \
+  --namespace sysdig-shield --create-namespace \
+  --version 1.28.0 \
+  -f helm-values/base-values.yaml \
+  -f helm-values/dev-values.yaml
+```
 
 ## 다음 단계
 
-- [Helm 차트 통합 가이드](helm-integration.md)
+- [Helm 차트 설정 상세](helm-integration.md)
 - [테스트 및 검증 절차](testing.md)
 - [문제 해결 가이드](troubleshooting.md)
 - [보안 강화 체크리스트](security.md)

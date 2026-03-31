@@ -55,8 +55,8 @@ kubectl patch validatingwebhookconfiguration sysdig-admission-controller-webhook
 # 또는 웹훅 일시 비활성화
 kubectl delete validatingwebhookconfiguration sysdig-admission-controller-webhook
 
-# 인시던트 해결 후 복구
-kubectl apply -f manifests/admission-controller/validatingwebhookconfiguration.yaml
+# 인시던트 해결 후 ArgoCD로 복구
+argocd app sync sysdig-shield-production
 ```
 
 ### 방법 4: Helm 롤백

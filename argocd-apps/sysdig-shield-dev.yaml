@@ -12,16 +12,22 @@ metadata:
 spec:
   project: default
 
-  source:
-    repoURL: https://github.com/yourusername/sysdig-shield-argocd.git
+  sources:
+  - repoURL: https://charts.sysdig.com
+    chart: shield
+    targetRevision: "1.28.0"
+    helm:
+      valueFiles:
+      - $values/helm-values/base-values.yaml
+      - $values/helm-values/dev-values.yaml
+  - repoURL: <YOUR_REPO_URL>
     targetRevision: HEAD
-    path: kustomize/overlays/dev
+    ref: values
 
   destination:
     server: https://kubernetes.default.svc
     namespace: sysdig-shield
 
-  # Automated sync for dev environment
   syncPolicy:
     automated:
       prune: true
@@ -37,7 +43,6 @@ spec:
         factor: 2
         maxDuration: 3m
 
-  # Health assessment
   ignoreDifferences:
   - group: admissionregistration.k8s.io
     kind: ValidatingWebhookConfiguration
