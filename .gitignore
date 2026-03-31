@@ -10,6 +10,7 @@ secrets/*
 *.pem
 *-key.yaml
 *-secret.yaml
+*local.md
 
 # Environment files
 .env
