@@ -1,0 +1,29 @@
+# ============================================================
+# Resource Profile: Medium 노드그룹
+# 대상: 4-16 vCPU 인스턴스 (m5.xlarge, m5.2xlarge, m6g.xlarge 등)
+# Karpenter NodePool 라벨: node-size-class: medium
+# ============================================================
+
+host:
+  node_selector:
+    node-size-class: medium
+
+  resources:
+    shield:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+    kmodule:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+# Cluster Shield는 small 릴리스에서만 배포
+cluster:
+  enabled: false

@@ -1,0 +1,16 @@
+# ============================================================
+# 클러스터 고유 설정: example-cluster-a
+# 이 파일은 모든 노드그룹 릴리스에 공통으로 적용됩니다.
+# ============================================================
+
+cluster_config:
+  name: "example-cluster-a-prod"
+  tags:
+    environment: production
+    team: platform
+    cluster: example-cluster-a
+
+# 클러스터 고유 toleration (기존 taint에 맞춰 수정)
+host:
+  tolerations:
+  - operator: Exists

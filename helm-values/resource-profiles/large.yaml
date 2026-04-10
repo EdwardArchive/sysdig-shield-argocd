@@ -1,0 +1,29 @@
+# ============================================================
+# Resource Profile: Large 노드그룹
+# 대상: 16+ vCPU 인스턴스 (m5.4xlarge, m5.8xlarge, r6g.4xlarge 등)
+# Karpenter NodePool 라벨: node-size-class: large
+# ============================================================
+
+host:
+  node_selector:
+    node-size-class: large
+
+  resources:
+    shield:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    kmodule:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+
+# Cluster Shield는 small 릴리스에서만 배포
+cluster:
+  enabled: false

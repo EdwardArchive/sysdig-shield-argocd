@@ -1,0 +1,18 @@
+# ============================================================
+# 클러스터 고유 설정: example-cluster-b
+# ============================================================
+
+cluster_config:
+  name: "example-cluster-b-prod"
+  tags:
+    environment: production
+    team: data
+    cluster: example-cluster-b
+
+host:
+  tolerations:
+  - operator: Exists
+  # 이 클러스터에 GPU 노드가 있다면 toleration 추가
+  # - key: "nvidia.com/gpu"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"

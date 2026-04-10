@@ -1,0 +1,14 @@
+# ============================================================
+# 클러스터 + 노드그룹 고유 설정: example-cluster-a / small
+# resource-profiles/small.yaml을 상속하며, 클러스터 고유 오버라이드가 필요한 경우 사용
+# 오버라이드가 없으면 이 파일을 비워두어도 됩니다.
+# ============================================================
+
+# 예시: 이 클러스터의 small 노드에 특정 toleration 추가
+# host:
+#   tolerations:
+#   - key: "workload-type"
+#     operator: "Equal"
+#     value: "lightweight"
+#     effect: "NoSchedule"
+#   - operator: Exists

@@ -1,0 +1,146 @@
+# ============================================================
+# ApplicationSet: NodePool 기반 멀티 릴리스 배포
+# ============================================================
+# Matrix Generator를 사용하여 클러스터 × 노드그룹 조합을 자동 생성
+#
+# 생성되는 Application 예시:
+#   shield-example-cluster-a-small
+#   shield-example-cluster-a-medium
+#   shield-example-cluster-a-large
+#   shield-example-cluster-b-small
+#   shield-example-cluster-b-medium
+#   shield-example-cluster-b-large
+#
+# Values 덮어쓰기 순서 (나중 파일이 이전 파일을 override):
+#   1. base-values.yaml              ← 공통 설정
+#   2. resource-profiles/{size}.yaml ← 노드그룹 리소스 + nodeSelector
+#   3. clusters/{name}/values.yaml   ← 클러스터 공통
+#   4. clusters/{name}/values-{size}.yaml ← 클러스터+노드그룹 고유 (final)
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: sysdig-shield-multi-nodepool
+  namespace: argocd
+spec:
+  # ----------------------------------------------------------
+  # Generator: 클러스터 디렉토리 × 노드그룹 목록
+  # ----------------------------------------------------------
+  generators:
+  - matrix:
+      generators:
+      # Generator 1: clusters/ 하위 디렉토리를 자동 감지
+      - git:
+          repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
+          revision: KR-multi
+          directories:
+          - path: 'helm-values/clusters/*'
+      # Generator 2: 노드그룹 정의 (NodePool 사이즈 그룹)
+      - list:
+          elements:
+          - nodegroup: small
+            profile: small
+            namespace_suffix: small
+          - nodegroup: medium
+            profile: medium
+            namespace_suffix: medium
+          - nodegroup: large
+            profile: large
+            namespace_suffix: large
+
+  # ----------------------------------------------------------
+  # Progressive Rollout: 단계적 배포
+  # ----------------------------------------------------------
+  strategy:
+    type: RollingSync
+    rollingSync:
+      steps:
+      # Step 1: dev 클러스터 먼저 배포
+      - matchExpressions:
+        - key: environment
+          operator: In
+          values:
+          - dev
+      # Step 2: staging 클러스터 배포
+      - matchExpressions:
+        - key: environment
+          operator: In
+          values:
+          - staging
+        maxUpdate: 100%
+      # Step 3: production 클러스터 10%씩 순차 배포
+      - matchExpressions:
+        - key: environment
+          operator: In
+          values:
+          - production
+        maxUpdate: 10%
+
+  # ----------------------------------------------------------
+  # Template: 각 클러스터 × 노드그룹 조합에 대한 Application 정의
+  # ----------------------------------------------------------
+  template:
+    metadata:
+      name: 'shield-{{path.basename}}-{{nodegroup}}'
+      namespace: argocd
+      labels:
+        app: sysdig-shield
+        nodegroup: '{{nodegroup}}'
+        cluster: '{{path.basename}}'
+      annotations:
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: sysdig-deployments
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: sysdig-alerts
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+
+      # Multi-Source: Helm 차트 + Git values 파일
+      sources:
+      # Source 1: Git 리포 참조 (values 파일용)
+      - repoURL: https://github.com/EdwardArchive/sysdig-shield-argocd.git
+        targetRevision: KR-multi
+        ref: values
+      # Source 2: Sysdig Shield Helm 차트
+      - repoURL: https://charts.sysdig.com
+        chart: shield
+        targetRevision: "1.28.0"
+        helm:
+          valueFiles:
+          # 1. 공통 설정
+          - $values/helm-values/base-values.yaml
+          # 2. 노드그룹 리소스 프로파일
+          - $values/helm-values/resource-profiles/{{profile}}.yaml
+          # 3. 클러스터 공통 설정
+          - $values/{{path}}/values.yaml
+          # 4. 클러스터 + 노드그룹 고유 설정 (final override)
+          - $values/{{path}}/values-{{nodegroup}}.yaml
+
+      # 노드그룹별 네임스페이스 분리
+      destination:
+        # 실제 환경에서는 ArgoCD에 등록된 클러스터 서버 URL 사용
+        # Cluster Generator 사용 시 {{server}}로 대체
+        server: https://kubernetes.default.svc
+        namespace: 'sysdig-shield-{{namespace_suffix}}'
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      ignoreDifferences:
+      - group: admissionregistration.k8s.io
+        kind: ValidatingWebhookConfiguration
+        jsonPointers:
+        - /webhooks/0/clientConfig/caBundle

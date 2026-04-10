@@ -1,0 +1,37 @@
+# ============================================================
+# Karpenter NodePool 예시: Medium 인스턴스 그룹
+# ============================================================
+
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: medium-nodes
+spec:
+  template:
+    metadata:
+      labels:
+        node-size-class: medium
+    spec:
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values: ["amd64", "arm64"]
+      - key: karpenter.k8s.aws/instance-category
+        operator: In
+        values: ["m", "c", "r"]
+      - key: karpenter.k8s.aws/instance-size
+        operator: In
+        values: ["xlarge", "2xlarge", "4xlarge"]
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: ["on-demand"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+  limits:
+    cpu: "5000"
+    memory: 5000Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m

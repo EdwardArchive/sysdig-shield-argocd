@@ -1,6 +1,8 @@
-# Sysdig Shield ArgoCD 배포
+# Sysdig Shield ArgoCD 배포 — NodePool 기반 멀티 릴리스
 
 ArgoCD를 활용한 GitOps 기반 Sysdig Shield 보안 플랫폼의 Kubernetes 클러스터 배포 저장소입니다.
+
+> **이 브랜치 (KR-multi)**: Karpenter 환경에서 인스턴스 사이즈별로 에이전트 리소스를 분리하여 배포하는 **NodePool 기반 멀티 릴리스** 방식을 구현합니다. 단일 프로파일 방식은 [KR 브랜치](https://github.com/EdwardArchive/sysdig-shield-argocd/tree/KR)를 참조하세요.
 
 ## 개요
 
@@ -138,52 +140,94 @@ argocd app get sysdig-shield-dev
 kubectl get pods -n sysdig-shield
 ```
 
-## 저장소 구조
+## 저장소 구조 (KR-multi 브랜치)
 
 ```
 sysdig-shield-argocd/
-├── argocd-apps/                      # ArgoCD Application 정의 (Helm Multi-Source)
-│   ├── sysdig-shield-dev.yaml        # 개발 (자동 동기화)
-│   ├── sysdig-shield-staging.yaml    # 스테이징 (자동 동기화)
-│   └── sysdig-shield-production.yaml # 운영 (수동 동기화 + Lua 헬스체크)
+├── applicationsets/                          # [신규] ApplicationSet 정의 (멀티 릴리스)
+│   ├── sysdig-shield-multi-nodepool.yaml     # Git Generator + Matrix (디렉토리 기반)
+│   └── sysdig-shield-cluster-generator.yaml  # Cluster Generator + Matrix (자동 감지)
 │
-├── helm-values/                      # Helm values (sysdig/shield v1.28.0)
-│   ├── base-values.yaml              # 기본 설정 (모든 환경 공통)
-│   ├── dev-values.yaml               # 개발 환경 오버라이드
-│   ├── staging-values.yaml           # 스테이징 환경 오버라이드
-│   └── production-values.yaml        # 운영 환경 오버라이드
+├── argocd-apps/                              # [기존] 단일 환경별 Application (참고용)
+│   ├── sysdig-shield-dev.yaml
+│   ├── sysdig-shield-staging.yaml
+│   └── sysdig-shield-production.yaml
 │
-├── secrets/                          # 시크릿 관리 템플릿 (평문 시크릿 없음)
-│   ├── README.md
-│   ├── external-secrets/             # External Secrets Operator (권장)
-│   ├── sealed-secrets/               # Sealed Secrets
-│   ├── argocd-vault-plugin/          # ArgoCD Vault Plugin
-│   └── cert-manager/                 # TLS 인증서 관리
+├── helm-values/
+│   ├── base-values.yaml                      # 모든 클러스터/노드그룹 공통 설정
+│   ├── resource-profiles/                    # [신규] 노드 사이즈별 리소스 프로파일
+│   │   ├── small.yaml                        #   2-4 vCPU (t3.medium ~ t3.xlarge)
+│   │   ├── medium.yaml                       #   4-16 vCPU (m5.xlarge ~ m5.4xlarge)
+│   │   └── large.yaml                        #   16+ vCPU (m5.4xlarge ~ m5.24xlarge)
+│   ├── clusters/                             # [신규] 클러스터별 고유 설정
+│   │   ├── example-cluster-a/
+│   │   │   ├── values.yaml                   #   클러스터 공통
+│   │   │   ├── values-small.yaml             #   클러스터 + small 노드그룹 고유
+│   │   │   ├── values-medium.yaml
+│   │   │   └── values-large.yaml
+│   │   └── example-cluster-b/
+│   │       ├── values.yaml
+│   │       ├── values-small.yaml
+│   │       ├── values-medium.yaml
+│   │       └── values-large.yaml
+│   ├── dev-values.yaml                       # [기존] 단일 릴리스 환경별 (참고용)
+│   ├── staging-values.yaml
+│   ├── production-values.yaml
+│   └── minikube-values.yaml
 │
-├── test/                             # 테스트 및 검증
-│   ├── minikube-test-deploy.sh       # minikube ArgoCD 배포 테스트 스크립트
-│   ├── connectivity-test.yaml        # Sysdig 백엔드 연결 테스트
-│   ├── sample-deployment.yaml        # 정상 배포 테스트
-│   ├── policy-violation.yaml         # 정책 위반 테스트
-│   ├── rollback-test.md              # 롤백 검증 절차
-│   ├── validate-rbac.sh              # RBAC 검증 스크립트
-│   └── validate-network-policies.sh  # 네트워크 정책 검증 스크립트
+├── karpenter-examples/                       # [신규] Karpenter NodePool 예시
+│   ├── nodepool-small.yaml
+│   ├── nodepool-medium.yaml
+│   └── nodepool-large.yaml
 │
-├── docs/                             # 운영 문서
-│   ├── deployment-guide-kr.md        # 종합 한국어 배포 가이드
-│   ├── installation.md               # 설치 및 설정 가이드
-│   ├── helm-integration.md           # Helm 차트 설정 상세 가이드
-│   ├── testing.md                    # 테스트 및 검증 절차
-│   ├── monitoring.md                 # Prometheus/Grafana 모니터링
-│   ├── maintenance.md                # 유지보수, 업그레이드, DR
-│   ├── security.md                   # 보안 강화 및 인시던트 대응
-│   ├── troubleshooting.md            # 문제 해결
-│   ├── aws-secrets-manager-guide.md  # AWS SM + ESO 시크릿 관리 가이드
-│   └── illumio-minikube-network-issue.md # Illumio VEN + minikube 네트워크 분석
+├── scripts/                                  # [신규] 운영 자동화 스크립트
+│   └── add-cluster.sh                        #   새 클러스터 추가 템플릿 생성
 │
+├── secrets/                                  # 시크릿 관리 템플릿
+├── test/                                     # 테스트 및 검증
+├── docs/                                     # 운영 문서
 ├── README.md
 ├── CLAUDE.md
 └── LICENSE
+```
+
+## 핵심 개념: NodePool 기반 멀티 릴리스
+
+### 왜 멀티 릴리스가 필요한가
+
+Karpenter 환경에서는 `t3.medium`(2 vCPU/4GB)부터 `m5.8xlarge`(32 vCPU/128GB)까지 다양한 인스턴스가 하나의 클러스터에 공존합니다. Sysdig Shield의 Host Shield는 DaemonSet이므로 모든 노드에 동일한 리소스를 할당하는데, 이는 작은 노드에서는 과다 할당, 큰 노드에서는 과소 할당 문제를 발생시킵니다.
+
+### 동작 원리
+
+1. Karpenter NodePool에 `node-size-class: small|medium|large` 라벨을 부여
+2. 각 리소스 프로파일(`resource-profiles/*.yaml`)에서 해당 라벨의 `nodeSelector`와 적정 리소스를 설정
+3. ApplicationSet의 Matrix Generator가 클러스터 × 노드그룹 조합을 자동 생성
+4. 각 조합별로 별도 네임스페이스(`sysdig-shield-small`, `sysdig-shield-medium`, `sysdig-shield-large`)에 배포
+
+### Cluster Shield 중복 배포 방지
+
+Host Shield(DaemonSet)는 노드그룹별로 분리 배포해도 문제없지만, Cluster Shield(Deployment)는 클러스터당 1개만 필요합니다. 따라서 `small` 프로파일에서만 `cluster.enabled: true`, 나머지는 `false`로 설정합니다.
+
+### Values 덮어쓰기 순서
+
+```
+1. base-values.yaml                              ← 공통 설정
+2. resource-profiles/{size}.yaml                  ← 노드그룹 리소스 + nodeSelector
+3. clusters/{cluster-name}/values.yaml            ← 클러스터 공통
+4. clusters/{cluster-name}/values-{size}.yaml     ← 클러스터+노드그룹 고유 (final)
+```
+
+### 새 클러스터 추가 방법
+
+```bash
+# 1. 스크립트로 템플릿 생성
+./scripts/add-cluster.sh my-new-cluster
+
+# 2. values.yaml에서 environment, team 등 수정
+vim helm-values/clusters/my-new-cluster/values.yaml
+
+# 3. Git push → ArgoCD 자동 감지 → Shield 배포
+git add . && git commit -m "Add my-new-cluster" && git push
 ```
 
 ## 배포 방식: ArgoCD Multi-Source + Helm

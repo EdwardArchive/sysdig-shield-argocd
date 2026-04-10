@@ -1,0 +1,42 @@
+# ============================================================
+# Resource Profile: Small 노드그룹
+# 대상: 2-4 vCPU 인스턴스 (t3.medium, t3.large, t3.xlarge 등)
+# Karpenter NodePool 라벨: node-size-class: small
+# ============================================================
+
+host:
+  # small 노드에만 Host Shield DaemonSet 스케줄링
+  node_selector:
+    node-size-class: small
+
+  resources:
+    shield:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    kmodule:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# Cluster Shield는 small 릴리스에서만 배포 (클러스터당 1개)
+# medium/large 릴리스에서는 false로 설정하여 중복 배포 방지
+cluster:
+  enabled: true
+  replica_count: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
+  pod_disruption_budget:
+    create: true
+    min_available: 1
